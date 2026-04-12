@@ -1,126 +1,273 @@
-/* App.css */
+/* ── Google Fonts ──────────────────────────────────────────────── */
+@import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap');
 
-.hero {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  min-height: 100vh;
-  background-color: #38b2ac;
+@import "tailwindcss";
+@plugin "daisyui";
+
+/* ── Tailwind custom fonts ─────────────────────────────────────── */
+@theme {
+  --font-sans: 'IBM Plex Sans', system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', 'Courier New', monospace;
+  --font-serif: 'DM Serif Display', Georgia, serif;
 }
 
-.hero-content {
-  text-align: center;
-  border-radius: 0.5rem;
-  padding: 1.5rem;
-  max-width: 24rem;
-  background-color: #ffffff;
-  margin: 0 auto;
+/* ── Design token system ───────────────────────────────────────── */
+:root {
+  /* Surfaces */
+  --ic-bg:              #0A0A0A;
+  --ic-surface:         #111111;
+  --ic-surface-raised:  #1A1A1A;
+  --ic-border:          #2A2A2A;
+  --ic-border-subtle:   #1F1F1F;
+
+  /* Text */
+  --ic-text:            #F5F5F0;
+  --ic-text-secondary:  #888880;
+  --ic-text-muted:      #555550;
+
+  /* Accent — gold */
+  --ic-accent:          #C8A96E;
+  --ic-accent-dim:      rgba(200, 169, 110, 0.12);
+  --ic-accent-border:   rgba(200, 169, 110, 0.25);
+
+  /* Semantic */
+  --ic-positive:        #4ADE80;
+  --ic-warning:         #FBBF24;
+  --ic-danger:          #F87171;
+
+  /* Data */
+  --ic-data-1:          #60A5FA;
+  --ic-data-2:          #A78BFA;
 }
 
-.text-4xl {
-  font-size: 2.25rem;
-  line-height: 2.5rem;
+/* ── Base reset ────────────────────────────────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
 }
 
-.font-bold {
-  font-weight: 700;
+html, body, #root {
+  height: 100%;
+  background: var(--ic-bg);
+  color: var(--ic-text);
+  font-family: 'IBM Plex Sans', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-.py-6 {
-  padding-top: 1.5rem;
-  padding-bottom: 1.5rem;
+/* ── Scrollbar ─────────────────────────────────────────────────── */
+::-webkit-scrollbar             { width: 4px; height: 4px; }
+::-webkit-scrollbar-track       { background: var(--ic-surface); }
+::-webkit-scrollbar-thumb       { background: var(--ic-border); }
+::-webkit-scrollbar-thumb:hover { background: #3A3A3A; }
+
+/* ── Monospace numbers ─────────────────────────────────────────── */
+.num {
+  font-family: 'IBM Plex Mono', monospace;
+  font-variant-numeric: tabular-nums;
 }
 
-.grid {
-  display: grid;
+/* ── Small caps label ──────────────────────────────────────────── */
+.label-caps {
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ic-text-muted);
+  font-family: 'IBM Plex Sans', sans-serif;
 }
 
-.btn {
-  margin: 0.5rem;
+/* ── Serif display ─────────────────────────────────────────────── */
+.serif { font-family: 'DM Serif Display', Georgia, serif; }
+
+/* ── IC surface card ───────────────────────────────────────────── */
+.ic-card {
+  background: var(--ic-surface-raised);
+  border: 1px solid var(--ic-border);
+  border-radius: 4px;
 }
 
+/* ── IC input ──────────────────────────────────────────────────── */
+.ic-input {
+  background: var(--ic-surface);
+  border: 1px solid var(--ic-border);
+  border-radius: 2px;
+  color: var(--ic-text);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 13px;
+  padding: 8px 12px;
+  width: 100%;
+  transition: border-color 120ms ease;
+  outline: none;
+}
+.ic-input:focus { border-color: var(--ic-accent); }
+.ic-input::placeholder { color: var(--ic-text-muted); }
+
+/* ── IC text input (non-mono) ──────────────────────────────────── */
+.ic-input-text {
+  background: var(--ic-surface);
+  border: 1px solid var(--ic-border);
+  border-radius: 2px;
+  color: var(--ic-text);
+  font-family: 'IBM Plex Sans', sans-serif;
+  font-size: 13px;
+  padding: 8px 12px;
+  width: 100%;
+  transition: border-color 120ms ease;
+  outline: none;
+}
+.ic-input-text:focus { border-color: var(--ic-accent); }
+.ic-input-text::placeholder { color: var(--ic-text-muted); }
+
+/* ── Buttons ───────────────────────────────────────────────────── */
 .btn-primary {
-  background-color: #1a202c;
-  color: #fff;
+  background: var(--ic-accent);
+  color: #0A0A0A;
+  border: none;
+  border-radius: 2px;
+  padding: 9px 20px;
+  font-family: 'IBM Plex Sans', sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: opacity 120ms ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.btn-primary:hover:not(:disabled) { opacity: 0.88; }
+.btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.btn-ghost {
+  background: transparent;
+  color: var(--ic-text-secondary);
+  border: 1px solid var(--ic-border);
+  border-radius: 2px;
+  padding: 8px 20px;
+  font-family: 'IBM Plex Sans', sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: border-color 120ms ease, color 120ms ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.btn-ghost:hover:not(:disabled) {
+  border-color: var(--ic-accent);
+  color: var(--ic-accent);
+}
+.btn-ghost:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.btn-danger {
+  background: transparent;
+  color: var(--ic-danger);
+  border: 1px solid var(--ic-danger);
+  border-radius: 2px;
+  padding: 8px 20px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 120ms ease;
+}
+.btn-danger:hover { background: rgba(248,113,113,0.1); }
+
+/* ── Ticker animation ──────────────────────────────────────────── */
+@keyframes ic-ticker {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+.ic-ticker-track { animation: ic-ticker 40s linear infinite; }
+
+/* ── Table base ────────────────────────────────────────────────── */
+.ic-table { width: 100%; border-collapse: collapse; }
+.ic-table th {
+  font-family: 'IBM Plex Sans', sans-serif;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ic-text-muted);
+  padding: 8px 12px;
+  text-align: left;
+  border-bottom: 1px solid var(--ic-border);
+}
+.ic-table td {
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--ic-border-subtle);
+  font-size: 13px;
+  color: var(--ic-text-secondary);
+}
+.ic-table tr:hover td { background: var(--ic-surface-raised); }
+.ic-table .num { font-family: 'IBM Plex Mono', monospace; }
+
+/* ── Gold accent rule ──────────────────────────────────────────── */
+.ic-accent-rule {
+  height: 2px;
+  background: var(--ic-accent);
 }
 
-.divider {
-  border-top: 1px solid #e2e8f0;
-  margin-top: 1rem;
-  margin-bottom: 1rem;
+/* ── Risk pills ────────────────────────────────────────────────── */
+.risk-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  border-radius: 2px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border: 1px solid;
+  background: transparent;
 }
 
-.modal {
-  position: fixed;
-  top: 0;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  background: rgba(0, 0, 0, 0.6);
-  display: none;
-  z-index: 9999;
-  overflow: auto;
+/* ── Nav link active ───────────────────────────────────────────── */
+.ic-nav-active {
+  color: var(--ic-text);
+  border-left: 2px solid var(--ic-accent);
+  background: var(--ic-surface-raised);
 }
 
-.modal-open {
-  display: block;
+/* ── Pulsing loader bar (no spinner) ───────────────────────────── */
+@keyframes ic-bar-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+.ic-loading-bar {
+  height: 2px;
+  background: var(--ic-accent);
+  animation: ic-bar-pulse 1.4s ease-in-out infinite;
 }
 
-.modal-box {
-  margin: 2.5em auto;
-  background: #fff;
-  border-radius: 0.5em;
-  width: 40em;
-  max-width: 90vw;
-  padding: 1em;
+/* ── Slider custom track ───────────────────────────────────────── */
+input[type="range"].ic-range {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 2px;
+  border-radius: 0;
+  outline: none;
+  cursor: pointer;
 }
-
-.font-bold {
-  font-weight: bold;
+input[type="range"].ic-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 0;
+  background: var(--ic-accent);
+  border: none;
+  cursor: pointer;
 }
-
-.text-2xl {
-  font-size: 1.5rem;
-}
-
-.m-2 {
-  margin: 0.5rem;
-}
-
-.pt-5 {
-  padding-top: 1.25rem;
-}
-
-.grid {
-  display: grid;
-}
-
-.btn {
-  margin: 0.5rem;
-  padding: 0.5rem 1rem;
-  background-color: #00aba2;
-  color: #fff;
-}
-
-.btn-warning {
-  background-color: #d69e2e;
-}
-
-.border-1 {
-  border-width: 1px;
-}
-
-.border-teal-800 {
-  border-color: #2c7a7b;
-}
-
-.modal-action {
-  display: grid;
-  margin-top: 1rem;
-}
-
-.divider {
-  border-top: 1px solid #e2e8f0;
-  margin-top: 1rem;
-  margin-bottom: 1rem;
+input[type="range"].ic-range::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border-radius: 0;
+  background: var(--ic-accent);
+  border: none;
 }

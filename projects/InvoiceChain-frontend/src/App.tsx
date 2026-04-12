@@ -1,7 +1,15 @@
 import { SupportedWallet, WalletId, WalletManager, WalletProvider } from '@txnlab/use-wallet-react'
 import { SnackbarProvider } from 'notistack'
-import Home from './Home'
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
+import { InvoiceProvider } from './context/InvoiceContext'
 import { getAlgodConfigFromViteEnvironment, getKmdConfigFromViteEnvironment } from './utils/network/getAlgoClientConfigs'
+
+import HomePage from './pages/HomePage'
+import AppLayout from './pages/AppLayout'
+import DashboardPage from './pages/DashboardPage'
+import UploadPage from './pages/UploadPage'
+import BorrowPage from './pages/BorrowPage'
+import PoolInfoPage from './pages/PoolInfoPage'
 
 let supportedWallets: SupportedWallet[]
 if (import.meta.env.VITE_ALGOD_NETWORK === 'localnet') {
@@ -18,11 +26,9 @@ if (import.meta.env.VITE_ALGOD_NETWORK === 'localnet') {
   ]
 } else {
   supportedWallets = [
-    { id: WalletId.DEFLY },
     { id: WalletId.PERA },
+    { id: WalletId.DEFLY },
     { id: WalletId.EXODUS },
-    // If you are interested in WalletConnect v2 provider
-    // refer to https://github.com/TxnLab/use-wallet for detailed integration instructions
   ]
 }
 
@@ -41,15 +47,32 @@ export default function App() {
         },
       },
     },
-    options: {
-      resetNetwork: true,
-    },
+    options: { resetNetwork: true },
   })
 
   return (
-    <SnackbarProvider maxSnack={3}>
+    <SnackbarProvider maxSnack={3} anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}>
       <WalletProvider manager={walletManager}>
-        <Home />
+        <InvoiceProvider>
+          <BrowserRouter>
+            <Routes>
+              {/* Public landing page */}
+              <Route path="/" element={<HomePage />} />
+
+              {/* App shell with sidebar */}
+              <Route path="/app" element={<AppLayout />}>
+                <Route index element={<DashboardPage />} />
+                <Route path="upload" element={<UploadPage />} />
+                <Route path="borrow" element={<BorrowPage />} />
+                <Route path="repay" element={<DashboardPage />} />
+                <Route path="pool" element={<PoolInfoPage />} />
+              </Route>
+
+              {/* Catch-all */}
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </BrowserRouter>
+        </InvoiceProvider>
       </WalletProvider>
     </SnackbarProvider>
   )

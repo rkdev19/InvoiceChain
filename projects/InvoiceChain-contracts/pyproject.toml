@@ -15,6 +15,11 @@ algorand-python-testing = "^1"
 
 [tool.poetry.group.dev.dependencies]
 puyapy = "*"
+pytest = "*"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
 
 [build-system]
 requires = ["poetry-core"]

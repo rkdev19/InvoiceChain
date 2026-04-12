@@ -31,7 +31,12 @@ environment_secrets = [
 # Commands intented for use locally and in CI
 build = { commands = [
   'poetry run python -m smart_contracts build',
+  'poetry run python -m algokit_client_generator -a smart_contracts/artifacts/invoice/Invoice.arc56.json -o smart_contracts/artifacts/invoice/invoice_client.py',
+  'touch smart_contracts/artifacts/__init__.py smart_contracts/artifacts/invoice/__init__.py smart_contracts/artifacts/invoice_chain/__init__.py',
 ], description = 'Build all smart contracts in the project' }
+test = { commands = [
+  'poetry run pytest tests/ -v',
+], description = 'Run integration tests' }
 lint = { commands = [
 ], description = 'Perform linting' }
 audit-teal = { commands = [

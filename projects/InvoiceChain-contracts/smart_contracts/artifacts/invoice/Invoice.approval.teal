@@ -1,0 +1,559 @@
+#pragma version 11
+#pragma typetrack false
+
+// algopy.arc4.ARC4Contract.approval_program() -> uint64:
+main:
+    intcblock 0 1 8 100
+    bytecblock "is_borrowed" "borrowed_amount" "borrow_limit" "amount" "due_date" "trust_score" "risk_level" "nft_asset_id" 0x151f7c75
+    txn ApplicationID
+    bnz main_after_if_else@2
+    // smart_contracts/invoice/contract.py:9
+    // self.amount = UInt64(0)
+    bytec_3 // "amount"
+    intc_0 // 0
+    app_global_put
+    // smart_contracts/invoice/contract.py:10
+    // self.due_date = UInt64(0)
+    bytec 4 // "due_date"
+    intc_0 // 0
+    app_global_put
+    // smart_contracts/invoice/contract.py:11
+    // self.trust_score = UInt64(0)
+    bytec 5 // "trust_score"
+    intc_0 // 0
+    app_global_put
+    // smart_contracts/invoice/contract.py:12
+    // self.risk_level = String("")
+    bytec 6 // "risk_level"
+    pushbytes ""
+    app_global_put
+    // smart_contracts/invoice/contract.py:13
+    // self.borrow_limit = UInt64(0)
+    bytec_2 // "borrow_limit"
+    intc_0 // 0
+    app_global_put
+    // smart_contracts/invoice/contract.py:14
+    // self.nft_asset_id = UInt64(0)
+    bytec 7 // "nft_asset_id"
+    intc_0 // 0
+    app_global_put
+    // smart_contracts/invoice/contract.py:15
+    // self.is_borrowed = False
+    bytec_0 // "is_borrowed"
+    intc_0 // 0
+    app_global_put
+    // smart_contracts/invoice/contract.py:16
+    // self.borrowed_amount = UInt64(0)
+    bytec_1 // "borrowed_amount"
+    intc_0 // 0
+    app_global_put
+
+main_after_if_else@2:
+    // smart_contracts/invoice/contract.py:7
+    // class Invoice(ARC4Contract):
+    txn NumAppArgs
+    bz main___algopy_default_create@15
+    txn OnCompletion
+    !
+    assert
+    txn ApplicationID
+    assert
+    pushbytess 0x88a0ffad 0xc6dd38ef 0xacd211da 0xdbd7b9dd 0xf97e9f27 0x10dc29ac // method "seed_pool(pay)void", method "get_pool_balance()uint64", method "create_invoice(uint64,uint64,uint64)uint64", method "borrow(uint64)void", method "repay(pay)void", method "get_invoice_info()(uint64,uint64,uint64,string,uint64,bool,uint64,uint64)"
+    txna ApplicationArgs 0
+    match seed_pool get_pool_balance create_invoice borrow repay get_invoice_info
+    err
+
+main___algopy_default_create@15:
+    txn OnCompletion
+    !
+    txn ApplicationID
+    !
+    &&
+    return
+
+
+// smart_contracts.invoice.contract.Invoice.seed_pool[routing]() -> void:
+seed_pool:
+    // smart_contracts/invoice/contract.py:22
+    // @abimethod
+    txn GroupIndex
+    intc_1 // 1
+    -
+    dup
+    gtxns TypeEnum
+    intc_1 // pay
+    ==
+    assert // transaction type is pay
+    // smart_contracts/invoice/contract.py:25
+    // assert Txn.sender == Global.creator_address, "Only deployer can seed pool"
+    txn Sender
+    global CreatorAddress
+    ==
+    assert // Only deployer can seed pool
+    // smart_contracts/invoice/contract.py:27
+    // payment.receiver == Global.current_application_address
+    dup
+    gtxns Receiver
+    global CurrentApplicationAddress
+    ==
+    // smart_contracts/invoice/contract.py:26-28
+    // assert (
+    //     payment.receiver == Global.current_application_address
+    // ), "Payment must go to contract"
+    assert // Payment must go to contract
+    // smart_contracts/invoice/contract.py:29
+    // assert payment.amount > UInt64(0), "Payment must be positive"
+    gtxns Amount
+    assert // Payment must be positive
+    // smart_contracts/invoice/contract.py:22
+    // @abimethod
+    intc_1 // 1
+    return
+
+
+// smart_contracts.invoice.contract.Invoice.get_pool_balance[routing]() -> void:
+get_pool_balance:
+    // smart_contracts/invoice/contract.py:34
+    // balance = Global.current_application_address.balance
+    global CurrentApplicationAddress
+    acct_params_get AcctBalance
+    swap
+    dup
+    uncover 2
+    assert // account funded
+    // smart_contracts/invoice/contract.py:35
+    // min_bal = Global.min_balance
+    global MinBalance
+    dup
+    cover 2
+    // smart_contracts/invoice/contract.py:36
+    // if balance > min_bal:
+    >
+    bz get_pool_balance_after_if_else@3
+    // smart_contracts/invoice/contract.py:37
+    // return balance - min_bal
+    dup2
+    -
+
+get_pool_balance_after_inlined_smart_contracts.invoice.contract.Invoice.get_pool_balance@4:
+    // smart_contracts/invoice/contract.py:31
+    // @abimethod(readonly=True)
+    itob
+    bytec 8 // 0x151f7c75
+    swap
+    concat
+    log
+    intc_1 // 1
+    return
+
+get_pool_balance_after_if_else@3:
+    // smart_contracts/invoice/contract.py:38
+    // return UInt64(0)
+    intc_0 // 0
+    // smart_contracts/invoice/contract.py:31
+    // @abimethod(readonly=True)
+    b get_pool_balance_after_inlined_smart_contracts.invoice.contract.Invoice.get_pool_balance@4
+
+
+// smart_contracts.invoice.contract.Invoice.create_invoice[routing]() -> void:
+create_invoice:
+    // smart_contracts/invoice/contract.py:44
+    // @abimethod
+    txna ApplicationArgs 1
+    dup
+    len
+    intc_2 // 8
+    ==
+    assert // invalid number of bytes for arc4.uint64
+    btoi
+    dup
+    txna ApplicationArgs 2
+    dup
+    len
+    intc_2 // 8
+    ==
+    assert // invalid number of bytes for arc4.uint64
+    btoi
+    swap
+    txna ApplicationArgs 3
+    dup
+    len
+    intc_2 // 8
+    ==
+    assert // invalid number of bytes for arc4.uint64
+    btoi
+    dup
+    cover 2
+    // smart_contracts/invoice/contract.py:48
+    // assert trust_score <= UInt64(SCALE), "trust_score must be 0-100"
+    dup
+    intc_3 // 100
+    <=
+    assert // trust_score must be 0-100
+    // smart_contracts/invoice/contract.py:50
+    // borrow_limit = amount * trust_score // UInt64(SCALE)
+    swap
+    dig 1
+    *
+    intc_3 // 100
+    /
+    swap
+    // smart_contracts/invoice/contract.py:52
+    // risk = String("HIGH")
+    pushbytes "HIGH"
+    swap
+    // smart_contracts/invoice/contract.py:53
+    // if trust_score >= UInt64(80):
+    pushint 80
+    >=
+    bz create_invoice_else_body@3
+    // smart_contracts/invoice/contract.py:54
+    // risk = String("LOW")
+    pushbytes "LOW"
+    bury 1
+
+create_invoice_after_if_else@6:
+    // smart_contracts/invoice/contract.py:58-66
+    // # ARC-3 NFT: total=1, decimals=0, URL ends with #arc3
+    // itxn_result = itxn.AssetConfig(
+    //     total=1,
+    //     decimals=0,
+    //     unit_name="INV",
+    //     asset_name="InvoiceNFT",
+    //     url="https://invoicechain.example.com/metadata#arc3",
+    //     manager=Global.current_application_address,
+    // ).submit()
+    itxn_begin
+    // smart_contracts/invoice/contract.py:65
+    // manager=Global.current_application_address,
+    global CurrentApplicationAddress
+    itxn_field ConfigAssetManager
+    // smart_contracts/invoice/contract.py:64
+    // url="https://invoicechain.example.com/metadata#arc3",
+    pushbytes "https://invoicechain.example.com/metadata#arc3"
+    itxn_field ConfigAssetURL
+    // smart_contracts/invoice/contract.py:63
+    // asset_name="InvoiceNFT",
+    pushbytes "InvoiceNFT"
+    itxn_field ConfigAssetName
+    // smart_contracts/invoice/contract.py:62
+    // unit_name="INV",
+    pushbytes "INV"
+    itxn_field ConfigAssetUnitName
+    // smart_contracts/invoice/contract.py:61
+    // decimals=0,
+    intc_0 // 0
+    itxn_field ConfigAssetDecimals
+    // smart_contracts/invoice/contract.py:60
+    // total=1,
+    intc_1 // 1
+    itxn_field ConfigAssetTotal
+    // smart_contracts/invoice/contract.py:58-59
+    // # ARC-3 NFT: total=1, decimals=0, URL ends with #arc3
+    // itxn_result = itxn.AssetConfig(
+    pushint 3 // acfg
+    itxn_field TypeEnum
+    intc_0 // 0
+    itxn_field Fee
+    // smart_contracts/invoice/contract.py:58-66
+    // # ARC-3 NFT: total=1, decimals=0, URL ends with #arc3
+    // itxn_result = itxn.AssetConfig(
+    //     total=1,
+    //     decimals=0,
+    //     unit_name="INV",
+    //     asset_name="InvoiceNFT",
+    //     url="https://invoicechain.example.com/metadata#arc3",
+    //     manager=Global.current_application_address,
+    // ).submit()
+    itxn_submit
+    itxn CreatedAssetID
+    // smart_contracts/invoice/contract.py:68
+    // self.amount = amount
+    bytec_3 // "amount"
+    dig 6
+    app_global_put
+    // smart_contracts/invoice/contract.py:69
+    // self.due_date = due_date
+    bytec 4 // "due_date"
+    dig 5
+    app_global_put
+    // smart_contracts/invoice/contract.py:70
+    // self.trust_score = trust_score
+    bytec 5 // "trust_score"
+    dig 4
+    app_global_put
+    // smart_contracts/invoice/contract.py:71
+    // self.risk_level = risk
+    bytec 6 // "risk_level"
+    dig 2
+    app_global_put
+    // smart_contracts/invoice/contract.py:72
+    // self.borrow_limit = borrow_limit
+    bytec_2 // "borrow_limit"
+    dig 3
+    app_global_put
+    // smart_contracts/invoice/contract.py:73
+    // self.nft_asset_id = itxn_result.created_asset.id
+    bytec 7 // "nft_asset_id"
+    dig 1
+    app_global_put
+    // smart_contracts/invoice/contract.py:74
+    // self.is_borrowed = False
+    bytec_0 // "is_borrowed"
+    intc_0 // 0
+    app_global_put
+    // smart_contracts/invoice/contract.py:75
+    // self.borrowed_amount = UInt64(0)
+    bytec_1 // "borrowed_amount"
+    intc_0 // 0
+    app_global_put
+    // smart_contracts/invoice/contract.py:44
+    // @abimethod
+    itob
+    bytec 8 // 0x151f7c75
+    swap
+    concat
+    log
+    intc_1 // 1
+    return
+
+create_invoice_else_body@3:
+    // smart_contracts/invoice/contract.py:55
+    // elif trust_score >= UInt64(60):
+    dig 2
+    pushint 60
+    >=
+    bz create_invoice_after_if_else@6
+    // smart_contracts/invoice/contract.py:56
+    // risk = String("MEDIUM")
+    pushbytes "MEDIUM"
+    bury 1
+    b create_invoice_after_if_else@6
+
+
+// smart_contracts.invoice.contract.Invoice.borrow[routing]() -> void:
+borrow:
+    // smart_contracts/invoice/contract.py:79
+    // @abimethod
+    txna ApplicationArgs 1
+    dup
+    len
+    intc_2 // 8
+    ==
+    assert // invalid number of bytes for arc4.uint64
+    btoi
+    // smart_contracts/invoice/contract.py:86
+    // assert not self.is_borrowed, "Invoice already borrowed against"
+    intc_0 // 0
+    bytec_0 // "is_borrowed"
+    app_global_get_ex
+    assert // check self.is_borrowed exists
+    !
+    assert // Invoice already borrowed against
+    // smart_contracts/invoice/contract.py:87
+    // assert borrow_amount <= self.borrow_limit, "Exceeds borrow limit"
+    intc_0 // 0
+    bytec_2 // "borrow_limit"
+    app_global_get_ex
+    assert // check self.borrow_limit exists
+    dig 1
+    >=
+    assert // Exceeds borrow limit
+    // smart_contracts/invoice/contract.py:89
+    // Global.current_application_address.balance
+    global CurrentApplicationAddress
+    acct_params_get AcctBalance
+    assert // account funded
+    // smart_contracts/invoice/contract.py:90
+    // >= borrow_amount + Global.min_balance
+    dig 1
+    global MinBalance
+    +
+    // smart_contracts/invoice/contract.py:89-90
+    // Global.current_application_address.balance
+    // >= borrow_amount + Global.min_balance
+    >=
+    // smart_contracts/invoice/contract.py:88-91
+    // assert (
+    //     Global.current_application_address.balance
+    //     >= borrow_amount + Global.min_balance
+    // ), "Insufficient pool balance"
+    assert // Insufficient pool balance
+    // smart_contracts/invoice/contract.py:93-97
+    // # Inner payment: contract → Txn.sender (the SME calling borrow)
+    // itxn.Payment(
+    //     receiver=Txn.sender,
+    //     amount=borrow_amount,
+    // ).submit()
+    itxn_begin
+    // smart_contracts/invoice/contract.py:95
+    // receiver=Txn.sender,
+    txn Sender
+    dig 1
+    itxn_field Amount
+    itxn_field Receiver
+    // smart_contracts/invoice/contract.py:93-94
+    // # Inner payment: contract → Txn.sender (the SME calling borrow)
+    // itxn.Payment(
+    intc_1 // pay
+    itxn_field TypeEnum
+    intc_0 // 0
+    itxn_field Fee
+    // smart_contracts/invoice/contract.py:93-97
+    // # Inner payment: contract → Txn.sender (the SME calling borrow)
+    // itxn.Payment(
+    //     receiver=Txn.sender,
+    //     amount=borrow_amount,
+    // ).submit()
+    itxn_submit
+    // smart_contracts/invoice/contract.py:99
+    // self.is_borrowed = True
+    bytec_0 // "is_borrowed"
+    intc_1 // 1
+    app_global_put
+    // smart_contracts/invoice/contract.py:100
+    // self.borrowed_amount = borrow_amount
+    bytec_1 // "borrowed_amount"
+    swap
+    app_global_put
+    // smart_contracts/invoice/contract.py:79
+    // @abimethod
+    intc_1 // 1
+    return
+
+
+// smart_contracts.invoice.contract.Invoice.repay[routing]() -> void:
+repay:
+    // smart_contracts/invoice/contract.py:102
+    // @abimethod
+    txn GroupIndex
+    intc_1 // 1
+    -
+    dup
+    gtxns TypeEnum
+    intc_1 // pay
+    ==
+    assert // transaction type is pay
+    // smart_contracts/invoice/contract.py:104
+    // assert self.is_borrowed, "No active borrow"
+    intc_0 // 0
+    bytec_0 // "is_borrowed"
+    app_global_get_ex
+    assert // check self.is_borrowed exists
+    assert // No active borrow
+    // smart_contracts/invoice/contract.py:105
+    // assert payment.amount >= self.borrowed_amount, "Insufficient repayment"
+    gtxns Amount
+    intc_0 // 0
+    bytec_1 // "borrowed_amount"
+    app_global_get_ex
+    assert // check self.borrowed_amount exists
+    >=
+    assert // Insufficient repayment
+    // smart_contracts/invoice/contract.py:107
+    // self.is_borrowed = False
+    bytec_0 // "is_borrowed"
+    intc_0 // 0
+    app_global_put
+    // smart_contracts/invoice/contract.py:108
+    // self.borrowed_amount = UInt64(0)
+    bytec_1 // "borrowed_amount"
+    intc_0 // 0
+    app_global_put
+    // smart_contracts/invoice/contract.py:102
+    // @abimethod
+    intc_1 // 1
+    return
+
+
+// smart_contracts.invoice.contract.Invoice.get_invoice_info[routing]() -> void:
+get_invoice_info:
+    // smart_contracts/invoice/contract.py:115
+    // self.amount,
+    intc_0 // 0
+    bytec_3 // "amount"
+    app_global_get_ex
+    assert // check self.amount exists
+    // smart_contracts/invoice/contract.py:116
+    // self.due_date,
+    intc_0 // 0
+    bytec 4 // "due_date"
+    app_global_get_ex
+    assert // check self.due_date exists
+    // smart_contracts/invoice/contract.py:117
+    // self.trust_score,
+    intc_0 // 0
+    bytec 5 // "trust_score"
+    app_global_get_ex
+    assert // check self.trust_score exists
+    // smart_contracts/invoice/contract.py:118
+    // self.risk_level,
+    intc_0 // 0
+    bytec 6 // "risk_level"
+    app_global_get_ex
+    assert // check self.risk_level exists
+    // smart_contracts/invoice/contract.py:119
+    // self.borrow_limit,
+    intc_0 // 0
+    bytec_2 // "borrow_limit"
+    app_global_get_ex
+    assert // check self.borrow_limit exists
+    // smart_contracts/invoice/contract.py:120
+    // self.is_borrowed,
+    intc_0 // 0
+    bytec_0 // "is_borrowed"
+    app_global_get_ex
+    assert // check self.is_borrowed exists
+    // smart_contracts/invoice/contract.py:121
+    // self.borrowed_amount,
+    intc_0 // 0
+    bytec_1 // "borrowed_amount"
+    app_global_get_ex
+    assert // check self.borrowed_amount exists
+    // smart_contracts/invoice/contract.py:122
+    // self.nft_asset_id,
+    intc_0 // 0
+    bytec 7 // "nft_asset_id"
+    app_global_get_ex
+    assert // check self.nft_asset_id exists
+    // smart_contracts/invoice/contract.py:110
+    // @abimethod(readonly=True)
+    uncover 7
+    itob
+    uncover 7
+    itob
+    concat
+    uncover 6
+    itob
+    concat
+    dig 5
+    len
+    itob
+    extract 6 2
+    uncover 6
+    concat
+    swap
+    pushbytes 0x0033
+    concat
+    uncover 5
+    itob
+    concat
+    pushbytes 0x00
+    intc_0 // 0
+    uncover 6
+    setbit
+    concat
+    uncover 3
+    itob
+    concat
+    uncover 2
+    itob
+    concat
+    swap
+    concat
+    bytec 8 // 0x151f7c75
+    swap
+    concat
+    log
+    intc_1 // 1
+    return
