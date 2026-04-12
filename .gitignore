@@ -168,3 +168,6 @@ cython_debug/
 # NPM
 node_modules
 
+# Claude / MCP local config (may contain API keys)
+.mcp.json
+.claude/
