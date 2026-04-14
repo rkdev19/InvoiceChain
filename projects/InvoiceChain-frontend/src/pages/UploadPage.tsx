@@ -121,54 +121,43 @@ export default function UploadPage() {
       const algorand = AlgorandClient.fromConfig({ algodConfig, indexerConfig })
       algorand.setDefaultSigner(transactionSigner)
 
-      // Deploy contract
+      // ── Signature 1: Deploy contract ──────────────────────────────
       const factory = new InvoiceFactory({ defaultSender: activeAddress, algorand })
       const { appClient } = await factory.deploy({ onSchemaBreak: 'append', onUpdate: 'append' })
       const appAddress = String(appClient.appClient.appAddress)
 
-      // Fund contract with 2 ALGO (MBR + inner txn fees for ICC creation)
-      await algorand.send.payment({
-        sender: activeAddress,
-        receiver: appAddress,
-        amount: microAlgos(2_000_000),
-      })
-
-      // Create the ICC ASA (inner txn — needs extra fee)
-      const iccResult = await appClient.send.setupIcc({
-        args: [],
-        extraFee: microAlgos(1000),
-        sender: activeAddress,
-      })
-      const iccAssetId = iccResult.return as bigint
-
-      // Seed the pool with 1 ALGO for inner txn fees
-      await appClient.send.seedPool({
-        args: {
-          payment: algorand.createTransaction.payment({
-            sender: activeAddress,
-            receiver: appAddress,
-            amount: microAlgos(1_000_000),
-          }),
-        },
-        sender: activeAddress,
-      })
-
-      // Mint Invoice NFT (inner txn — extra fee)
       const dueDateUnix = dueDate
         ? BigInt(Math.floor(new Date(dueDate).getTime() / 1000))
         : 2_000_000_000n
 
-      const result = await appClient.send.createInvoice({
-        args: {
-          amount: BigInt(ctx.amount),
-          dueDate: dueDateUnix,
-          trustScore: BigInt(ctx.trustScore),
-        },
-        extraFee: microAlgos(1000),
-      })
+      // ── Signature 2: Fund + setup_icc + create_invoice (one atomic group) ──
+      // Payment covers MBR for 2 ASAs (0.1 ALGO each) + base account (0.1 ALGO).
+      // extraFee on each app call covers the inner transaction fee from the caller side.
+      // seed_pool is not needed: inner txn fees are paid via extraFee, not the contract's balance.
+      const groupResult = await algorand
+        .newGroup()
+        .addPayment({
+          sender: activeAddress,
+          receiver: appAddress,
+          amount: microAlgos(400_000), // 0.4 ALGO: covers MBR for base + ICC ASA + NFT ASA
+        })
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .addAppCallMethodCall(await appClient.params.setupIcc({ args: [], extraFee: microAlgos(1000) }) as any)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .addAppCallMethodCall(await appClient.params.createInvoice({
+          args: {
+            amount: BigInt(ctx.amount),
+            dueDate: dueDateUnix,
+            trustScore: BigInt(ctx.trustScore),
+          },
+          extraFee: microAlgos(1000),
+        }) as any)
+        .execute()
 
-      const assetId = result.return as bigint
-      const txnId = result.transaction.txID()
+      // returns[] contains ABI return values in method-call order (non-ABI txns like payment are excluded)
+      const iccAssetId = groupResult.returns?.[0]?.returnValue as bigint
+      const assetId = groupResult.returns?.[1]?.returnValue as bigint
+      const txnId = groupResult.txIds[groupResult.txIds.length - 1]
 
       ctx.setAppId(BigInt(appClient.appClient.appId))
       ctx.setAppAddress(appAddress)
