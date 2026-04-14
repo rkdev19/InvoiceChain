@@ -35,6 +35,14 @@ interface InvoiceState {
   poolBalance: bigint
   setPoolBalance: (v: bigint) => void
 
+  // New fields — ICC token + collateral state
+  iccAssetId: bigint | null
+  setIccAssetId: (v: bigint | null) => void
+  collateralLocked: boolean
+  setCollateralLocked: (v: boolean) => void
+  invoiceStatus: string
+  setInvoiceStatus: (v: string) => void
+
   appClient: InvoiceClient | null
   setAppClient: (v: InvoiceClient | null) => void
 }
@@ -56,6 +64,9 @@ export const InvoiceProvider = ({ children }: { children: ReactNode }) => {
   const [isBorrowed, setIsBorrowed] = useState(false)
   const [borrowedAmount, setBorrowedAmount] = useState<bigint>(0n)
   const [poolBalance, setPoolBalance] = useState<bigint>(0n)
+  const [iccAssetId, setIccAssetId] = useState<bigint | null>(null)
+  const [collateralLocked, setCollateralLocked] = useState(false)
+  const [invoiceStatus, setInvoiceStatus] = useState('ACTIVE')
   const [appClient, setAppClient] = useState<InvoiceClient | null>(null)
 
   return (
@@ -75,6 +86,9 @@ export const InvoiceProvider = ({ children }: { children: ReactNode }) => {
         isBorrowed, setIsBorrowed,
         borrowedAmount, setBorrowedAmount,
         poolBalance, setPoolBalance,
+        iccAssetId, setIccAssetId,
+        collateralLocked, setCollateralLocked,
+        invoiceStatus, setInvoiceStatus,
         appClient, setAppClient,
       }}
     >

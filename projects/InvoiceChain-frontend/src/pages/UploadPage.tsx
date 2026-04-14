@@ -10,7 +10,7 @@ import { getAlgodConfigFromViteEnvironment, getIndexerConfigFromViteEnvironment 
 import { InvoiceFactory } from '../contracts/Invoice'
 import { loraBase } from '../utils/lora'
 
-// ── Thin arc gauge (score reveal) ───────────────────────────────
+// ── Arc gauge ────────────────────────────────────────────────────
 const R = 48
 const CIRC = 2 * Math.PI * R
 
@@ -19,34 +19,45 @@ function ScoreArc({ score, color }: { score: number; color: string }) {
   return (
     <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
       <svg width="120" height="120" viewBox="0 0 120 120">
-        <circle cx="60" cy="60" r={R} fill="none" stroke="var(--ic-border)" strokeWidth="2.5" />
+        <circle cx="60" cy="60" r={R} fill="none" stroke="var(--border-default)" strokeWidth="2" />
         <motion.circle
           cx="60" cy="60" r={R}
           fill="none"
           stroke={color}
-          strokeWidth="2.5"
+          strokeWidth="2"
           strokeLinecap="square"
           strokeDasharray={`${CIRC} ${CIRC}`}
           strokeDashoffset={CIRC}
           animate={{ strokeDashoffset: offset }}
-          transition={{ duration: 1.3, ease: 'easeOut', delay: 0.1 }}
+          transition={{ duration: 1.2, ease: 'easeOut', delay: 0.1 }}
           transform="rotate(-90 60 60)"
         />
       </svg>
       <div style={{ position: 'absolute', textAlign: 'center' }}>
         <motion.div
-          className="num"
-          style={{ fontSize: 28, fontWeight: 600, color, lineHeight: 1, letterSpacing: '-0.02em' }}
+          className="display"
+          style={{ fontSize: 30, color, lineHeight: 1 }}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.3 }}
         >
           {score}
         </motion.div>
-        <div style={{ fontSize: 9, color: 'var(--ic-text-muted)', letterSpacing: '0.1em', marginTop: 3 }}>/ 100</div>
+        <div className="mono" style={{ fontSize: 9, color: 'var(--text-muted)', letterSpacing: '0.10em', marginTop: 3 }}>/ 100</div>
       </div>
     </div>
   )
+}
+
+const LABEL: React.CSSProperties = {
+  display: 'block',
+  fontSize: 10,
+  fontWeight: 500,
+  letterSpacing: '0.10em',
+  textTransform: 'uppercase',
+  color: 'var(--text-muted)',
+  fontFamily: "'IBM Plex Sans', sans-serif",
+  marginBottom: 6,
 }
 
 // ── Main Page ─────────────────────────────────────────────────────
@@ -57,23 +68,19 @@ export default function UploadPage() {
   const navigate = useNavigate()
   const lora = loraBase()
 
-  // Form fields
   const [invoiceNo, setInvoiceNo] = useState('')
   const [client, setClient] = useState(ctx.businessName)
   const [amount, setAmount] = useState(ctx.amount ? String(ctx.amount) : '')
   const [dueDate, setDueDate] = useState(ctx.dueDate)
 
-  // Score state
   const [scored, setScored] = useState(ctx.trustScore > 0)
   const [score, setScore] = useState<number | null>(ctx.trustScore > 0 ? ctx.trustScore : null)
   const [riskLevel, setRiskLevel] = useState(ctx.riskLevel)
   const [borrowLimit, setBorrowLimit] = useState(ctx.borrowLimit)
-
-  // Mint state
   const [minting, setMinting] = useState(false)
   const scoreRef = useRef<HTMLDivElement>(null)
 
-  const riskColor = score !== null ? getRiskColor(riskLevel || 'HIGH') : 'var(--ic-text-muted)'
+  const riskColor = score !== null ? getRiskColor(riskLevel || 'HIGH') : 'var(--text-muted)'
 
   const handleScore = (e: React.FormEvent) => {
     e.preventDefault()
@@ -114,10 +121,27 @@ export default function UploadPage() {
       const algorand = AlgorandClient.fromConfig({ algodConfig, indexerConfig })
       algorand.setDefaultSigner(transactionSigner)
 
+      // Deploy contract
       const factory = new InvoiceFactory({ defaultSender: activeAddress, algorand })
       const { appClient } = await factory.deploy({ onSchemaBreak: 'append', onUpdate: 'append' })
       const appAddress = String(appClient.appClient.appAddress)
 
+      // Fund contract with 2 ALGO (MBR + inner txn fees for ICC creation)
+      await algorand.send.payment({
+        sender: activeAddress,
+        receiver: appAddress,
+        amount: microAlgos(2_000_000),
+      })
+
+      // Create the ICC ASA (inner txn — needs extra fee)
+      const iccResult = await appClient.send.setupIcc({
+        args: [],
+        extraFee: microAlgos(1000),
+        sender: activeAddress,
+      })
+      const iccAssetId = iccResult.return as bigint
+
+      // Seed the pool with 1 ALGO for inner txn fees
       await appClient.send.seedPool({
         args: {
           payment: algorand.createTransaction.payment({
@@ -129,6 +153,7 @@ export default function UploadPage() {
         sender: activeAddress,
       })
 
+      // Mint Invoice NFT (inner txn — extra fee)
       const dueDateUnix = dueDate
         ? BigInt(Math.floor(new Date(dueDate).getTime() / 1000))
         : 2_000_000_000n
@@ -149,6 +174,9 @@ export default function UploadPage() {
       ctx.setAppAddress(appAddress)
       ctx.setNftAssetId(assetId)
       ctx.setMintTxnId(txnId)
+      ctx.setIccAssetId(iccAssetId)
+      ctx.setInvoiceStatus('ACTIVE')
+      ctx.setCollateralLocked(false)
       ctx.setAppClient(appClient)
 
       enqueueSnackbar(`NFT minted. Asset ID: ${assetId}`, { variant: 'success' })
@@ -159,28 +187,16 @@ export default function UploadPage() {
     }
   }
 
-  const labelStyle: React.CSSProperties = {
-    display: 'block',
-    fontSize: 10,
-    fontWeight: 500,
-    letterSpacing: '0.1em',
-    textTransform: 'uppercase',
-    color: 'var(--ic-text-muted)',
-    fontFamily: "'IBM Plex Sans', sans-serif",
-    marginBottom: 6,
-  }
-
   return (
-    <div style={{ maxWidth: 640, margin: '0 auto' }}>
-      {/* Gold accent line */}
-      <div style={{ height: 2, background: 'var(--ic-accent)', marginBottom: 28 }} />
+    <div style={{ maxWidth: 560, margin: '0 auto' }}>
+      {/* Gold accent rule */}
+      <div style={{ height: 3, background: 'var(--accent-gold)', marginBottom: 28 }} />
 
       {/* ── Invoice form ── */}
       <form onSubmit={handleScore} style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-        {/* Invoice No + Client */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
           <div>
-            <label style={labelStyle}>Invoice Number</label>
+            <label style={LABEL}>Invoice Number</label>
             <input
               type="text"
               placeholder="INV-2024-001"
@@ -190,7 +206,7 @@ export default function UploadPage() {
             />
           </div>
           <div>
-            <label style={labelStyle}>Client / Business Name</label>
+            <label style={LABEL}>Client / Business Name</label>
             <input
               type="text"
               required
@@ -202,10 +218,9 @@ export default function UploadPage() {
           </div>
         </div>
 
-        {/* Amount + Due Date */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
           <div>
-            <label style={labelStyle}>Invoice Amount (₹)</label>
+            <label style={LABEL}>Invoice Amount (₹)</label>
             <input
               type="number"
               min={1}
@@ -217,30 +232,32 @@ export default function UploadPage() {
             />
           </div>
           <div>
-            <label style={labelStyle}>Due Date</label>
+            <label style={LABEL}>Due Date</label>
             <input
               type="date"
               required
               value={dueDate}
               onChange={e => setDueDate(e.target.value)}
-              className="ic-input"
               style={{
-                background: 'var(--ic-surface)',
-                border: '1px solid var(--ic-border)',
+                background: 'var(--bg-surface)',
+                border: '1px solid var(--border-default)',
                 borderRadius: 2,
-                color: 'var(--ic-text)',
+                color: 'var(--text-primary)',
                 fontFamily: "'IBM Plex Mono', monospace",
                 fontSize: 13,
                 padding: '8px 12px',
                 width: '100%',
                 outline: 'none',
                 colorScheme: 'dark',
+                transition: 'border-color 120ms',
               }}
+              onFocus={e => (e.currentTarget.style.borderColor = 'var(--border-focus)')}
+              onBlur={e => (e.currentTarget.style.borderColor = 'var(--border-default)')}
             />
           </div>
         </div>
 
-        <button type="submit" className="btn-primary" style={{ alignSelf: 'flex-start', letterSpacing: '0.1em' }}>
+        <button type="submit" className="btn-primary" style={{ alignSelf: 'flex-start' }}>
           Calculate Trust Score →
         </button>
       </form>
@@ -258,50 +275,42 @@ export default function UploadPage() {
             <div
               style={{
                 marginTop: 28,
-                border: '1px solid var(--ic-border)',
-                background: 'var(--ic-surface)',
+                border: '1px solid var(--border-default)',
+                background: 'var(--bg-surface)',
                 padding: 28,
               }}
             >
-              {/* Section header */}
+              {/* Header */}
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
                 <span className="label-caps">Trust Score Analysis</span>
                 <span
-                  className="risk-pill"
-                  style={{
-                    color: riskColor,
-                    borderColor: riskColor,
-                  }}
+                  className="pill"
+                  style={{ color: riskColor, borderColor: riskColor }}
                 >
-                  <span style={{ width: 5, height: 5, borderRadius: '50%', background: riskColor, display: 'inline-block' }} />
+                  <span style={{ width: 5, height: 5, borderRadius: '50%', background: riskColor, display: 'inline-block', marginRight: 5 }} />
                   {riskLevel} RISK
                 </span>
               </div>
 
-              {/* Arc + stats row */}
+              {/* Arc + stats */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 32 }}>
                 <ScoreArc score={score} color={riskColor} />
 
                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 14 }}>
-                  {/* Borrow limit */}
-                  <div style={{ borderBottom: '1px solid var(--ic-border-subtle)', paddingBottom: 14 }}>
+                  <div style={{ borderBottom: '1px solid var(--border-subtle)', paddingBottom: 14 }}>
                     <div className="label-caps" style={{ marginBottom: 6 }}>Maximum Borrow Limit</div>
                     <div
-                      className="num"
-                      style={{ fontSize: 32, fontWeight: 600, color: 'var(--ic-accent)', letterSpacing: '-0.02em', lineHeight: 1 }}
+                      className="display"
+                      style={{ fontSize: 34, color: 'var(--accent-gold)', lineHeight: 1 }}
                     >
                       ₹{borrowLimit.toLocaleString('en-IN')}
                     </div>
-                    <div
-                      className="num"
-                      style={{ fontSize: 10, color: 'var(--ic-text-muted)', marginTop: 4, letterSpacing: '0.04em' }}
-                    >
+                    <div className="mono" style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 4 }}>
                       = ₹{Number(amount).toLocaleString('en-IN')} × {score}%
                     </div>
                   </div>
 
-                  {/* Score breakdown note */}
-                  <div style={{ fontSize: 11, color: 'var(--ic-text-muted)', lineHeight: 1.6 }}>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.6 }}>
                     Based on SME repayment history: 6/7 invoices paid on time.
                     Reliability 40% + Frequency 30% + Consistency 30%.
                   </div>
@@ -309,7 +318,7 @@ export default function UploadPage() {
               </div>
 
               {/* Mint section */}
-              <div style={{ marginTop: 24, borderTop: '1px solid var(--ic-border)', paddingTop: 20 }}>
+              <div style={{ marginTop: 24, borderTop: '1px solid var(--border-default)', paddingTop: 20 }}>
                 {ctx.nftAssetId !== null ? (
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
                     <div>
@@ -317,31 +326,36 @@ export default function UploadPage() {
                       <a
                         href={`${lora}/asset/${ctx.nftAssetId}`}
                         target="_blank" rel="noreferrer"
-                        className="num"
-                        style={{ fontSize: 12, color: 'var(--ic-accent)', textDecoration: 'none', letterSpacing: '0.04em' }}
+                        className="mono"
+                        style={{ fontSize: 11, color: 'var(--accent-gold)', textDecoration: 'none', letterSpacing: '0.04em' }}
                       >
                         Asset {String(ctx.nftAssetId)} ↗
                       </a>
+                      {ctx.iccAssetId !== null && (
+                        <div className="mono" style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 4, letterSpacing: '0.04em' }}>
+                          ICC: {String(ctx.iccAssetId)}
+                        </div>
+                      )}
                     </div>
                     <button className="btn-primary" onClick={() => navigate('/app/borrow')}>
-                      Borrow Funds →
+                      Borrow ICC →
                     </button>
                   </div>
                 ) : (
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
-                    <div style={{ fontSize: 12, color: 'var(--ic-text-muted)' }}>
-                      Mint your invoice as an ARC-3 NFT on Algorand to use it as collateral.
+                    <div style={{ fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.6, maxWidth: 260 }}>
+                      Mint your invoice as an ARC-3 NFT. This also creates the ICC token and seeds the lending pool.
                     </div>
                     <button
                       onClick={handleMint}
                       disabled={minting || !activeAddress}
                       className="btn-primary"
-                      style={{ whiteSpace: 'nowrap' }}
+                      style={{ whiteSpace: 'nowrap', flexShrink: 0 }}
                     >
                       {minting ? (
                         <>
-                          <span className="ic-loading-bar" style={{ width: 50, display: 'inline-block', verticalAlign: 'middle', marginRight: 6 }} />
-                          Minting…
+                          <span className="loading-bar" style={{ width: 40, display: 'inline-block', verticalAlign: 'middle', marginRight: 6 }} />
+                          Deploying…
                         </>
                       ) : (
                         'Mint Invoice NFT →'
@@ -363,8 +377,8 @@ export default function UploadPage() {
           transition={{ delay: 0.1 }}
           style={{ marginTop: 28 }}
         >
-          <div className="label-caps" style={{ marginBottom: 10 }}>Invoice Preview</div>
-          <div style={{ border: '1px solid var(--ic-border)', overflow: 'hidden' }}>
+          <div className="label-caps" style={{ marginBottom: 8 }}>Invoice Preview</div>
+          <div style={{ border: '1px solid var(--border-default)', overflow: 'hidden' }}>
             <table className="ic-table">
               <thead>
                 <tr>
@@ -375,14 +389,14 @@ export default function UploadPage() {
               </thead>
               <tbody>
                 <tr>
-                  <td><span className="num" style={{ fontSize: 12 }}>{invoiceNo || '—'}</span></td>
-                  <td><span style={{ fontSize: 13, color: 'var(--ic-text)' }}>{client || '—'}</span></td>
+                  <td><span className="mono" style={{ fontSize: 11 }}>{invoiceNo || '—'}</span></td>
+                  <td><span style={{ fontSize: 13, color: 'var(--text-primary)' }}>{client || '—'}</span></td>
                   <td>
-                    <span className="num" style={{ fontSize: 13, color: 'var(--ic-text)' }}>
+                    <span className="mono" style={{ fontSize: 13, color: 'var(--text-primary)' }}>
                       {amount ? Number(amount).toLocaleString('en-IN') : '—'}
                     </span>
                   </td>
-                  <td><span className="num" style={{ fontSize: 12 }}>{dueDate || '—'}</span></td>
+                  <td><span className="mono" style={{ fontSize: 11 }}>{dueDate || '—'}</span></td>
                 </tr>
               </tbody>
             </table>

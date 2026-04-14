@@ -10,37 +10,34 @@ import { loraBase } from '../utils/lora'
 import { getAlgodConfigFromViteEnvironment, getIndexerConfigFromViteEnvironment } from '../utils/network/getAlgoClientConfigs'
 import { InvoiceClient } from '../contracts/Invoice'
 
-// ── Thin arc gauge ───────────────────────────────────────────────
-const R = 38
+// ── Arc gauge ────────────────────────────────────────────────────
+const R = 36
 const CIRC = 2 * Math.PI * R
 
 function ArcGauge({ score, color }: { score: number; color: string }) {
   const offset = CIRC * (1 - score / 100)
   return (
     <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
-      <svg width="96" height="96" viewBox="0 0 96 96">
-        <circle cx="48" cy="48" r={R} fill="none" stroke="var(--ic-border)" strokeWidth="3" />
+      <svg width="88" height="88" viewBox="0 0 88 88">
+        <circle cx="44" cy="44" r={R} fill="none" stroke="var(--border-default)" strokeWidth="2.5" />
         <motion.circle
-          cx="48" cy="48" r={R}
+          cx="44" cy="44" r={R}
           fill="none"
           stroke={color}
-          strokeWidth="3"
+          strokeWidth="2.5"
           strokeLinecap="square"
           strokeDasharray={`${CIRC} ${CIRC}`}
           strokeDashoffset={CIRC}
           animate={{ strokeDashoffset: offset }}
-          transition={{ duration: 1.1, ease: 'easeOut' }}
-          transform="rotate(-90 48 48)"
+          transition={{ duration: 1.0, ease: 'easeOut' }}
+          transform="rotate(-90 44 44)"
         />
       </svg>
       <div style={{ position: 'absolute', textAlign: 'center' }}>
-        <div
-          className="num"
-          style={{ fontSize: 22, fontWeight: 600, color, lineHeight: 1, letterSpacing: '-0.02em' }}
-        >
+        <div className="mono" style={{ fontSize: 20, fontWeight: 600, color, lineHeight: 1, letterSpacing: '-0.02em' }}>
           {score}
         </div>
-        <div style={{ fontSize: 9, color: 'var(--ic-text-muted)', letterSpacing: '0.08em', marginTop: 2 }}>
+        <div className="mono" style={{ fontSize: 9, color: 'var(--text-muted)', letterSpacing: '0.06em', marginTop: 2 }}>
           /100
         </div>
       </div>
@@ -56,22 +53,22 @@ function StatCard({
 }) {
   return (
     <motion.div
-      initial={{ opacity: 0, y: 10 }}
+      initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay, duration: 0.3 }}
+      transition={{ delay, duration: 0.25 }}
       style={{
-        background: 'var(--ic-surface)',
-        border: '1px solid var(--ic-border)',
-        padding: '20px 20px 18px',
+        background: 'var(--bg-surface)',
+        border: '1px solid var(--border-default)',
+        padding: '18px 20px 16px',
       }}
     >
-      <div className="label-caps" style={{ marginBottom: 12 }}>{label}</div>
+      <div className="label-caps" style={{ marginBottom: 10 }}>{label}</div>
       <div
-        className="num"
+        className="mono"
         style={{
-          fontSize: 26,
+          fontSize: 24,
           fontWeight: 600,
-          color: color ?? 'var(--ic-accent)',
+          color: color ?? 'var(--accent-gold)',
           letterSpacing: '-0.02em',
           lineHeight: 1,
         }}
@@ -79,7 +76,7 @@ function StatCard({
         {value}
       </div>
       {sub && (
-        <div className="num" style={{ fontSize: 10, color: 'var(--ic-text-muted)', marginTop: 6, letterSpacing: '0.04em' }}>
+        <div className="mono" style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 6, letterSpacing: '0.04em' }}>
           {sub}
         </div>
       )}
@@ -87,13 +84,36 @@ function StatCard({
   )
 }
 
-// ── Risk pill ────────────────────────────────────────────────────
+// ── Risk dot ─────────────────────────────────────────────────────
 function RiskDot({ risk }: { risk: string }) {
   const color = getRiskColor(risk)
   return (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-      <span style={{ width: 6, height: 6, borderRadius: '50%', background: color, display: 'inline-block', flexShrink: 0 }} />
-      <span className="num" style={{ fontSize: 11, color, letterSpacing: '0.06em' }}>{risk}</span>
+      <span style={{ width: 5, height: 5, borderRadius: '50%', background: color, display: 'inline-block', flexShrink: 0 }} />
+      <span className="mono" style={{ fontSize: 10, color, letterSpacing: '0.06em' }}>{risk}</span>
+    </span>
+  )
+}
+
+// ── Status pill ──────────────────────────────────────────────────
+function StatusPill({ status }: { status: string }) {
+  const color =
+    status === 'ACTIVE'     ? 'var(--status-low)' :
+    status === 'LIQUIDATED' ? 'var(--status-liquidated)' :
+    'var(--status-medium)'
+  return (
+    <span
+      className="mono"
+      style={{
+        fontSize: 10,
+        letterSpacing: '0.08em',
+        color,
+        border: `1px solid ${color}`,
+        padding: '2px 6px',
+        borderRadius: 2,
+      }}
+    >
+      {status}
     </span>
   )
 }
@@ -109,7 +129,7 @@ export default function DashboardPage() {
   const lora = loraBase()
 
   const riskColor = getRiskColor(ctx.riskLevel || 'HIGH')
-  const poolAlgo = (Number(ctx.poolBalance) / 1_000_000).toFixed(3)
+  const iccPool = Number(ctx.poolBalance)
   const utilisation = ctx.borrowLimit > 0
     ? Math.min(100, Math.round((Number(ctx.borrowedAmount) / ctx.borrowLimit) * 100))
     : 0
@@ -122,14 +142,19 @@ export default function DashboardPage() {
         ctx.appClient.getInvoiceInfo(),
         (ctx.appClient as InvoiceClient).send.getPoolBalance({ args: [] }),
       ])
-      const [, , , riskLevel, borrowLimit, isBorrowed, borrowedAmount, nftAssetId] = info
+      // 11-tuple: amount, due_date, trust_score, risk_level, borrow_limit,
+      //           is_borrowed, borrowed_amount, nft_asset_id, collateral_locked, status, icc_asset_id
+      const [, , , riskLevel, borrowLimit, isBorrowed, borrowedAmount, nftAssetId, collateralLocked, status, iccAssetId] = info
       ctx.setRiskLevel(riskLevel)
       ctx.setBorrowLimit(Number(borrowLimit))
       ctx.setIsBorrowed(Boolean(isBorrowed))
       ctx.setBorrowedAmount(borrowedAmount)
       ctx.setNftAssetId(nftAssetId)
+      ctx.setCollateralLocked(Boolean(collateralLocked))
+      ctx.setInvoiceStatus(status)
+      ctx.setIccAssetId(iccAssetId)
       ctx.setPoolBalance(poolResult.return ?? 0n)
-    } catch { /* not yet initialised */ }
+    } catch { /* contract not yet initialised */ }
     finally { setRefreshing(false) }
   }
 
@@ -139,7 +164,7 @@ export default function DashboardPage() {
   }, [ctx.appClient, activeAddress])
 
   const handleRepay = async () => {
-    if (!activeAddress || !ctx.appClient || !ctx.appAddress) {
+    if (!activeAddress || !ctx.appClient || !ctx.appAddress || !ctx.iccAssetId) {
       enqueueSnackbar('Wallet or contract not ready', { variant: 'warning' })
       return
     }
@@ -152,10 +177,11 @@ export default function DashboardPage() {
 
       await ctx.appClient.send.repay({
         args: {
-          payment: algorand.createTransaction.payment({
+          iccTransfer: algorand.createTransaction.assetTransfer({
             sender: activeAddress,
             receiver: ctx.appAddress,
-            amount: microAlgos(Number(ctx.borrowedAmount)),
+            assetId: ctx.iccAssetId,
+            amount: ctx.borrowedAmount,
           }),
         },
         sender: activeAddress,
@@ -163,6 +189,7 @@ export default function DashboardPage() {
 
       ctx.setIsBorrowed(false)
       ctx.setBorrowedAmount(0n)
+      ctx.setCollateralLocked(false)
       enqueueSnackbar('Loan repaid successfully!', { variant: 'success' })
       void refreshState()
     } catch (err: unknown) {
@@ -172,124 +199,124 @@ export default function DashboardPage() {
     }
   }
 
-  // Invoice row data (single invoice per wallet in current design)
   const hasInvoice = ctx.nftAssetId !== null
   const invoiceRow = hasInvoice
     ? {
-        id: ctx.nftAssetId !== null ? String(ctx.nftAssetId) : '—',
+        id: String(ctx.nftAssetId),
         amount: ctx.amount ? `₹${ctx.amount.toLocaleString('en-IN')}` : '—',
         dueDate: ctx.dueDate || '—',
         score: ctx.trustScore,
         risk: ctx.riskLevel || '—',
-        status: ctx.isBorrowed ? 'BORROWED' : 'COLLATERAL',
+        status: ctx.invoiceStatus || 'ACTIVE',
         txnId: ctx.mintTxnId,
       }
     : null
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
-      {/* Gold accent line */}
-      <div style={{ height: 2, background: 'var(--ic-accent)', marginBottom: 28 }} />
+      {/* Gold accent rule */}
+      <div style={{ height: 3, background: 'var(--accent-gold)', marginBottom: 24 }} />
 
       {/* App ID link */}
       {ctx.appId !== null && (
-        <div style={{ marginBottom: 20 }}>
+        <div style={{ marginBottom: 18 }}>
           <a
             href={`${lora}/application/${ctx.appId}`}
             target="_blank" rel="noreferrer"
-            style={{ fontSize: 11, color: 'var(--ic-text-muted)', fontFamily: "'IBM Plex Mono', monospace", letterSpacing: '0.06em', textDecoration: 'none' }}
-            onMouseEnter={e => (e.currentTarget.style.color = 'var(--ic-accent)')}
-            onMouseLeave={e => (e.currentTarget.style.color = 'var(--ic-text-muted)')}
+            className="mono"
+            style={{ fontSize: 11, color: 'var(--text-muted)', letterSpacing: '0.06em', textDecoration: 'none' }}
+            onMouseEnter={e => (e.currentTarget.style.color = 'var(--accent-gold)')}
+            onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-muted)')}
           >
             APP / {String(ctx.appId)} ↗
           </a>
         </div>
       )}
 
-      {/* ── 4 stat cards ── */}
+      {/* ── 4 metric cards ── */}
       <div
         style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(4, 1fr)',
           gap: 1,
-          background: 'var(--ic-border)',
-          border: '1px solid var(--ic-border)',
-          marginBottom: 28,
+          background: 'var(--border-default)',
+          border: '1px solid var(--border-default)',
+          marginBottom: 24,
         }}
       >
         {/* Trust Score — arc card */}
         <motion.div
-          initial={{ opacity: 0, y: 10 }}
+          initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0, duration: 0.3 }}
+          transition={{ delay: 0, duration: 0.25 }}
           style={{
-            background: 'var(--ic-surface)',
-            padding: '20px 20px 18px',
+            background: 'var(--bg-surface)',
+            padding: '18px 20px 16px',
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'flex-start',
           }}
         >
-          <div className="label-caps" style={{ marginBottom: 12 }}>Trust Score</div>
+          <div className="label-caps" style={{ marginBottom: 10 }}>Trust Score</div>
           <div style={{ alignSelf: 'center', marginTop: 4 }}>
             <ArcGauge score={ctx.trustScore} color={riskColor} />
           </div>
           {ctx.riskLevel && (
-            <div style={{ marginTop: 10, alignSelf: 'center' }}>
+            <div style={{ marginTop: 8, alignSelf: 'center' }}>
               <RiskDot risk={ctx.riskLevel} />
             </div>
           )}
         </motion.div>
 
         <StatCard
-          delay={0.05}
+          delay={0.04}
           label="Borrow Limit"
           value={`₹${ctx.borrowLimit.toLocaleString('en-IN')}`}
           sub={`${utilisation}% utilised`}
         />
         <StatCard
-          delay={0.1}
-          label="Pool Balance"
-          value={`${poolAlgo}`}
-          sub="ALGO available"
-          color="var(--ic-positive)"
+          delay={0.08}
+          label="ICC Pool"
+          value={`${iccPool.toLocaleString()}`}
+          sub="ICC available"
+          color="var(--status-low)"
         />
         <StatCard
-          delay={0.15}
+          delay={0.12}
           label="Active Loans"
           value={ctx.isBorrowed ? '1' : '0'}
-          sub={ctx.isBorrowed ? `₹${Number(ctx.borrowedAmount).toLocaleString('en-IN')} outstanding` : 'No open positions'}
-          color={ctx.isBorrowed ? 'var(--ic-warning)' : 'var(--ic-text-muted)'}
+          sub={ctx.isBorrowed ? `${Number(ctx.borrowedAmount).toLocaleString()} ICC outstanding` : 'No open positions'}
+          color={ctx.isBorrowed ? 'var(--status-medium)' : 'var(--text-muted)'}
         />
       </div>
 
-      {/* ── Refresh button ── */}
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 20 }}>
+      {/* ── Refresh ── */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 18 }}>
         <button
           onClick={() => void refreshState()}
           disabled={refreshing || !ctx.appClient}
-          className="btn-ghost"
-          style={{ fontSize: 10, padding: '5px 14px', opacity: refreshing ? 0.5 : 1 }}
+          className="btn-secondary"
+          style={{ fontSize: 10, padding: '4px 12px' }}
         >
           {refreshing ? 'Refreshing…' : 'Refresh'}
         </button>
       </div>
 
+      {/* Loading bar */}
+      {refreshing && <div className="loading-bar" style={{ marginBottom: 2 }} />}
+
       {/* ── Invoice table ── */}
       <motion.div
-        initial={{ opacity: 0, y: 10 }}
+        initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.2, duration: 0.3 }}
-        style={{ marginBottom: 28 }}
+        transition={{ delay: 0.16, duration: 0.25 }}
+        style={{ marginBottom: 24 }}
       >
-        <div style={{ marginBottom: 10 }}>
+        <div style={{ marginBottom: 8 }}>
           <span className="label-caps">Invoice Positions</span>
         </div>
 
-        {/* Loading bar when refreshing */}
-        {refreshing && <div className="ic-loading-bar" style={{ marginBottom: 2 }} />}
-
-        <div style={{ border: '1px solid var(--ic-border)', overflow: 'hidden' }}>
+        <div style={{ border: '1px solid var(--border-default)', overflow: 'hidden' }}>
           <table className="ic-table">
             <thead>
               <tr>
@@ -305,20 +332,20 @@ export default function DashboardPage() {
                     <a
                       href={`${lora}/asset/${invoiceRow.id}`}
                       target="_blank" rel="noreferrer"
-                      className="num"
-                      style={{ fontSize: 12, color: 'var(--ic-accent)', textDecoration: 'none', letterSpacing: '0.04em' }}
+                      className="mono"
+                      style={{ fontSize: 11, color: 'var(--accent-gold)', textDecoration: 'none', letterSpacing: '0.04em' }}
                     >
                       {invoiceRow.id} ↗
                     </a>
                   </td>
                   <td>
-                    <span className="num" style={{ color: 'var(--ic-text)' }}>{invoiceRow.amount}</span>
+                    <span className="mono" style={{ color: 'var(--text-primary)' }}>{invoiceRow.amount}</span>
                   </td>
                   <td>
-                    <span className="num" style={{ fontSize: 12 }}>{invoiceRow.dueDate}</span>
+                    <span className="mono" style={{ fontSize: 11 }}>{invoiceRow.dueDate}</span>
                   </td>
                   <td>
-                    <span className="num" style={{ fontSize: 13, color: riskColor, fontWeight: 600 }}>
+                    <span className="mono" style={{ fontSize: 13, color: riskColor, fontWeight: 600 }}>
                       {invoiceRow.score}
                     </span>
                   </td>
@@ -326,31 +353,22 @@ export default function DashboardPage() {
                     <RiskDot risk={invoiceRow.risk} />
                   </td>
                   <td>
-                    <span
-                      className="num"
-                      style={{
-                        fontSize: 10,
-                        letterSpacing: '0.08em',
-                        color: invoiceRow.status === 'BORROWED' ? 'var(--ic-warning)' : 'var(--ic-positive)',
-                      }}
-                    >
-                      {invoiceRow.status}
-                    </span>
+                    <StatusPill status={invoiceRow.status} />
                   </td>
                   <td>
                     {ctx.isBorrowed ? (
                       <button
                         onClick={handleRepay}
                         disabled={repaying}
-                        className="btn-ghost"
-                        style={{ fontSize: 10, padding: '4px 10px', color: 'var(--ic-warning)', borderColor: 'var(--ic-warning)' }}
+                        className="btn-secondary"
+                        style={{ fontSize: 10, padding: '4px 10px', color: 'var(--status-medium)', borderColor: 'var(--status-medium)' }}
                       >
                         {repaying ? 'Repaying…' : 'Repay'}
                       </button>
                     ) : (
                       <button
                         onClick={() => navigate('/app/borrow')}
-                        className="btn-ghost"
+                        className="btn-secondary"
                         style={{ fontSize: 10, padding: '4px 10px' }}
                       >
                         Borrow
@@ -362,7 +380,7 @@ export default function DashboardPage() {
                 <tr>
                   <td
                     colSpan={7}
-                    style={{ textAlign: 'center', padding: '32px 12px', color: 'var(--ic-text-muted)', fontSize: 12 }}
+                    style={{ textAlign: 'center', padding: '32px 12px', color: 'var(--text-muted)', fontSize: 12 }}
                   >
                     No invoice positions.{' '}
                     <button
@@ -371,7 +389,7 @@ export default function DashboardPage() {
                         background: 'none',
                         border: 'none',
                         cursor: 'pointer',
-                        color: 'var(--ic-accent)',
+                        color: 'var(--accent-gold)',
                         fontSize: 12,
                         fontFamily: 'inherit',
                         textDecoration: 'underline',
@@ -387,22 +405,44 @@ export default function DashboardPage() {
         </div>
       </motion.div>
 
+      {/* ── ICC asset info ── */}
+      {ctx.iccAssetId !== null && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.22 }}
+          style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: 14 }}
+        >
+          <span className="label-caps" style={{ marginRight: 10 }}>ICC Asset</span>
+          <a
+            href={`${lora}/asset/${ctx.iccAssetId}`}
+            target="_blank" rel="noreferrer"
+            className="mono"
+            style={{ fontSize: 11, color: 'var(--text-muted)', textDecoration: 'none', letterSpacing: '0.04em' }}
+            onMouseEnter={e => (e.currentTarget.style.color = 'var(--accent-gold)')}
+            onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-muted)')}
+          >
+            {String(ctx.iccAssetId)} ↗
+          </a>
+        </motion.div>
+      )}
+
       {/* ── Mint txn link ── */}
       {ctx.mintTxnId && (
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ delay: 0.3 }}
-          style={{ borderTop: '1px solid var(--ic-border-subtle)', paddingTop: 14 }}
+          transition={{ delay: 0.26 }}
+          style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: 14, marginTop: 8 }}
         >
           <span className="label-caps" style={{ marginRight: 10 }}>Mint Transaction</span>
           <a
             href={`${lora}/transaction/${ctx.mintTxnId}`}
             target="_blank" rel="noreferrer"
-            className="num"
-            style={{ fontSize: 11, color: 'var(--ic-text-muted)', textDecoration: 'none', letterSpacing: '0.04em' }}
-            onMouseEnter={e => (e.currentTarget.style.color = 'var(--ic-accent)')}
-            onMouseLeave={e => (e.currentTarget.style.color = 'var(--ic-text-muted)')}
+            className="mono"
+            style={{ fontSize: 11, color: 'var(--text-muted)', textDecoration: 'none', letterSpacing: '0.04em' }}
+            onMouseEnter={e => (e.currentTarget.style.color = 'var(--accent-gold)')}
+            onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-muted)')}
           >
             {ctx.mintTxnId.slice(0, 20)}… ↗
           </a>

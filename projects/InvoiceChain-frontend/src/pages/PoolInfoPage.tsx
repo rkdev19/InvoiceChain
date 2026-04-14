@@ -19,13 +19,14 @@ export default function PoolInfoPage() {
   const [seedAmount, setSeedAmount] = useState(1)
   const [refreshing, setRefreshing] = useState(false)
 
-  const poolAlgo = Number(ctx.poolBalance) / 1_000_000
-  const borrowedAlgo = Number(ctx.borrowedAmount) / 1_000_000
-  const totalAlgo = poolAlgo + borrowedAlgo
-  const utilisation = totalAlgo > 0 ? Math.round((borrowedAlgo / totalAlgo) * 100) : 0
+  // Pool values are ICC units (integer, decimals=2)
+  const poolIcc = Number(ctx.poolBalance)
+  const borrowedIcc = Number(ctx.borrowedAmount)
+  const totalIcc = poolIcc + borrowedIcc
+  const utilisation = totalIcc > 0 ? Math.round((borrowedIcc / totalIcc) * 100) : 0
 
   const utilisationColor =
-    utilisation > 80 ? 'var(--ic-danger)' : utilisation > 50 ? 'var(--ic-warning)' : 'var(--ic-positive)'
+    utilisation > 80 ? 'var(--status-high)' : utilisation > 50 ? 'var(--status-medium)' : 'var(--status-low)'
 
   const refreshPool = async () => {
     if (!ctx.appClient) return
@@ -73,55 +74,73 @@ export default function PoolInfoPage() {
     ? [
         {
           borrower: activeAddress ? `${activeAddress.slice(0, 8)}…${activeAddress.slice(-4)}` : '—',
-          amount: `₹${Number(ctx.borrowedAmount).toLocaleString('en-IN')}`,
+          amount: `${Number(ctx.borrowedAmount).toLocaleString()} ICC`,
           risk: ctx.riskLevel || '—',
-          status: 'ACTIVE',
+          status: ctx.invoiceStatus || 'ACTIVE',
           txnId: ctx.mintTxnId,
         },
       ]
     : []
 
-  const labelStyle: React.CSSProperties = {
+  const LABEL: React.CSSProperties = {
     display: 'block',
     fontSize: 10,
     fontWeight: 500,
-    letterSpacing: '0.1em',
+    letterSpacing: '0.10em',
     textTransform: 'uppercase',
-    color: 'var(--ic-text-muted)',
+    color: 'var(--text-muted)',
     fontFamily: "'IBM Plex Sans', sans-serif",
     marginBottom: 6,
   }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
-      {/* Gold accent line */}
-      <div style={{ height: 2, background: 'var(--ic-accent)', marginBottom: 28 }} />
+      {/* Gold accent rule */}
+      <div style={{ height: 3, background: 'var(--accent-gold)', marginBottom: 24 }} />
 
-      {/* ── 4 pool stat cards ── */}
+      {/* ── ICC asset header ── */}
+      {ctx.iccAssetId !== null && (
+        <div style={{ marginBottom: 18, display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ width: 5, height: 5, background: 'var(--accent-gold)', flexShrink: 0 }} />
+          <span className="label-caps">InvoiceChain Credit (ICC)</span>
+          <a
+            href={`${lora}/asset/${ctx.iccAssetId}`}
+            target="_blank" rel="noreferrer"
+            className="mono"
+            style={{ fontSize: 11, color: 'var(--text-muted)', textDecoration: 'none', letterSpacing: '0.04em' }}
+            onMouseEnter={e => (e.currentTarget.style.color = 'var(--accent-gold)')}
+            onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-muted)')}
+          >
+            {String(ctx.iccAssetId)} ↗
+          </a>
+        </div>
+      )}
+
+      {/* ── 4 ICC stat cards ── */}
       <motion.div
-        initial={{ opacity: 0, y: 8 }}
+        initial={{ opacity: 0, y: 6 }}
         animate={{ opacity: 1, y: 0 }}
         style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(4, 1fr)',
           gap: 1,
-          background: 'var(--ic-border)',
-          border: '1px solid var(--ic-border)',
-          marginBottom: 28,
+          background: 'var(--border-default)',
+          border: '1px solid var(--border-default)',
+          marginBottom: 24,
         }}
       >
         {[
           {
-            label: 'Pool Balance',
-            value: poolAlgo.toFixed(3),
-            unit: 'ALGO',
-            color: 'var(--ic-accent)',
+            label: 'ICC Pool',
+            value: poolIcc.toLocaleString(),
+            unit: 'ICC available',
+            color: 'var(--accent-gold)',
           },
           {
             label: 'Total Borrowed',
-            value: borrowedAlgo.toFixed(3),
-            unit: 'ALGO',
-            color: ctx.isBorrowed ? 'var(--ic-warning)' : 'var(--ic-text-muted)',
+            value: borrowedIcc.toLocaleString(),
+            unit: 'ICC out on loan',
+            color: ctx.isBorrowed ? 'var(--status-medium)' : 'var(--text-muted)',
           },
           {
             label: 'Utilisation',
@@ -133,71 +152,72 @@ export default function PoolInfoPage() {
             label: 'Active Loans',
             value: ctx.isBorrowed ? '1' : '0',
             unit: 'positions',
-            color: ctx.isBorrowed ? 'var(--ic-warning)' : 'var(--ic-text-muted)',
+            color: ctx.isBorrowed ? 'var(--status-medium)' : 'var(--text-muted)',
           },
         ].map(({ label, value, unit, color }) => (
-          <div key={label} style={{ background: 'var(--ic-surface)', padding: '20px 20px 18px' }}>
-            <div className="label-caps" style={{ marginBottom: 12 }}>{label}</div>
+          <div key={label} style={{ background: 'var(--bg-surface)', padding: '18px 20px 16px' }}>
+            <div className="label-caps" style={{ marginBottom: 10 }}>{label}</div>
             <div
-              className="num"
-              style={{ fontSize: 24, fontWeight: 600, color, letterSpacing: '-0.02em', lineHeight: 1 }}
+              className="mono"
+              style={{ fontSize: 22, fontWeight: 600, color, letterSpacing: '-0.02em', lineHeight: 1 }}
             >
               {value}
             </div>
-            <div className="num" style={{ fontSize: 10, color: 'var(--ic-text-muted)', marginTop: 6, letterSpacing: '0.04em' }}>
+            <div className="mono" style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 6, letterSpacing: '0.04em' }}>
               {unit}
             </div>
           </div>
         ))}
       </motion.div>
 
-      {/* ── Utilisation bar ── */}
+      {/* ── Utilisation bar (3px) ── */}
       <motion.div
-        initial={{ opacity: 0, y: 8 }}
+        initial={{ opacity: 0, y: 6 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.08 }}
-        style={{ border: '1px solid var(--ic-border)', background: 'var(--ic-surface)', padding: '18px 20px', marginBottom: 2 }}
+        transition={{ delay: 0.06 }}
+        style={{ border: '1px solid var(--border-default)', background: 'var(--bg-surface)', padding: '16px 18px', marginBottom: 2 }}
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10 }}>
           <span className="label-caps">Pool Utilisation</span>
-          <span className="num" style={{ fontSize: 11, color: utilisationColor, letterSpacing: '0.04em' }}>
+          <span className="mono" style={{ fontSize: 11, color: utilisationColor, letterSpacing: '0.04em' }}>
             {utilisation}% · {utilisation <= 50 ? 'Healthy' : utilisation <= 80 ? 'Moderate' : 'High'}
           </span>
         </div>
-        <div style={{ height: 2, background: 'var(--ic-border)', position: 'relative', overflow: 'hidden' }}>
+        <div className="util-bar-track">
           <motion.div
-            style={{ position: 'absolute', left: 0, top: 0, height: '100%', background: utilisationColor }}
+            className="util-bar-fill"
+            style={{ background: utilisationColor }}
             initial={{ width: 0 }}
             animate={{ width: `${utilisation}%` }}
-            transition={{ duration: 0.9, ease: 'easeOut', delay: 0.2 }}
+            transition={{ duration: 0.8, ease: 'easeOut', delay: 0.2 }}
           />
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6 }}>
-          <span className="num" style={{ fontSize: 10, color: 'var(--ic-text-muted)' }}>
-            Borrowed: {borrowedAlgo.toFixed(3)} ALGO
+          <span className="mono" style={{ fontSize: 10, color: 'var(--text-muted)' }}>
+            Borrowed: {borrowedIcc.toLocaleString()} ICC
           </span>
-          <span className="num" style={{ fontSize: 10, color: 'var(--ic-text-muted)' }}>
-            Available: {poolAlgo.toFixed(3)} ALGO
+          <span className="mono" style={{ fontSize: 10, color: 'var(--text-muted)' }}>
+            Available: {poolIcc.toLocaleString()} ICC
           </span>
         </div>
       </motion.div>
 
-      {/* ── Seed Pool ── */}
+      {/* ── Seed Pool (deployer only) ── */}
       <motion.div
-        initial={{ opacity: 0, y: 8 }}
+        initial={{ opacity: 0, y: 6 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.14 }}
-        style={{ border: '1px solid var(--ic-border)', background: 'var(--ic-surface)', padding: '18px 20px', marginBottom: 28 }}
+        transition={{ delay: 0.12 }}
+        style={{ border: '1px solid var(--border-default)', background: 'var(--bg-surface)', padding: '16px 18px', marginBottom: 24 }}
       >
-        <div className="label-caps" style={{ marginBottom: 4 }}>Seed Liquidity Pool</div>
-        <p style={{ fontSize: 12, color: 'var(--ic-text-muted)', marginBottom: 14, lineHeight: 1.5 }}>
-          As the contract creator, you can add ALGO to the lending pool.
-          Only the deployer address can seed.
+        <div className="label-caps" style={{ marginBottom: 4 }}>Seed Liquidity Pool (ALGO)</div>
+        <p style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 14, lineHeight: 1.5 }}>
+          Send ALGO to the contract to cover inner transaction fees. Only the deployer address can seed.
+          ICC tokens are already held by the contract after setup.
         </p>
 
-        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 10 }}>
           <div style={{ flex: 1 }}>
-            <label style={labelStyle}>Amount (ALGO)</label>
+            <label style={LABEL}>Amount (ALGO)</label>
             <input
               type="number"
               min={0.1}
@@ -219,28 +239,31 @@ export default function PoolInfoPage() {
           <button
             onClick={refreshPool}
             disabled={refreshing || !ctx.appClient}
-            className="btn-ghost"
-            style={{ whiteSpace: 'nowrap', fontSize: 10 }}
+            className="btn-secondary"
+            style={{ whiteSpace: 'nowrap', fontSize: 10, padding: '9px 12px' }}
           >
-            {refreshing ? 'Refreshing…' : 'Refresh'}
+            {refreshing ? '…' : 'Refresh'}
           </button>
         </div>
       </motion.div>
 
+      {/* ── Loading bar ── */}
+      {refreshing && <div className="loading-bar" style={{ marginBottom: 2 }} />}
+
       {/* ── Active loans table ── */}
       <motion.div
-        initial={{ opacity: 0, y: 8 }}
+        initial={{ opacity: 0, y: 6 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.2 }}
+        transition={{ delay: 0.18 }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
           <span className="label-caps">Active Loans</span>
           <span
-            className="num"
+            className="mono"
             style={{
               fontSize: 10,
-              color: 'var(--ic-text-muted)',
-              border: '1px solid var(--ic-border)',
+              color: 'var(--text-muted)',
+              border: '1px solid var(--border-default)',
               padding: '1px 6px',
               letterSpacing: '0.06em',
             }}
@@ -249,14 +272,11 @@ export default function PoolInfoPage() {
           </span>
         </div>
 
-        {/* Loading bar */}
-        {refreshing && <div className="ic-loading-bar" style={{ marginBottom: 2 }} />}
-
-        <div style={{ border: '1px solid var(--ic-border)', overflow: 'hidden' }}>
+        <div style={{ border: '1px solid var(--border-default)', overflow: 'hidden' }}>
           <table className="ic-table">
             <thead>
               <tr>
-                {['Borrower', 'Amount', 'Risk', 'Status', 'Transaction'].map(h => (
+                {['Borrower', 'ICC Amount', 'Risk', 'Status', 'Transaction'].map(h => (
                   <th key={h}>{h}</th>
                 ))}
               </tr>
@@ -266,24 +286,31 @@ export default function PoolInfoPage() {
                 const rc = getRiskColor(loan.risk)
                 return (
                   <tr key={i}>
-                    <td>
-                      <span className="num" style={{ fontSize: 12 }}>{loan.borrower}</span>
-                    </td>
-                    <td>
-                      <span className="num" style={{ color: 'var(--ic-text)', fontWeight: 600 }}>{loan.amount}</span>
-                    </td>
+                    <td><span className="mono" style={{ fontSize: 11 }}>{loan.borrower}</span></td>
+                    <td><span className="mono" style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{loan.amount}</span></td>
                     <td>
                       <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-                        <span style={{ width: 6, height: 6, borderRadius: '50%', background: rc, display: 'inline-block' }} />
-                        <span className="num" style={{ fontSize: 11, color: rc, letterSpacing: '0.06em' }}>{loan.risk}</span>
+                        <span style={{ width: 5, height: 5, borderRadius: '50%', background: rc, display: 'inline-block' }} />
+                        <span className="mono" style={{ fontSize: 10, color: rc, letterSpacing: '0.06em' }}>{loan.risk}</span>
                       </span>
                     </td>
                     <td>
                       <span
-                        className="num"
-                        style={{ fontSize: 10, color: 'var(--ic-warning)', letterSpacing: '0.08em', display: 'flex', alignItems: 'center', gap: 5 }}
+                        className="mono"
+                        style={{
+                          fontSize: 10,
+                          color: loan.status === 'LIQUIDATED' ? 'var(--status-liquidated)' : 'var(--status-medium)',
+                          letterSpacing: '0.08em',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 5,
+                        }}
                       >
-                        <span style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--ic-warning)', display: 'inline-block' }} />
+                        <span style={{
+                          width: 5, height: 5, borderRadius: '50%',
+                          background: loan.status === 'LIQUIDATED' ? 'var(--status-liquidated)' : 'var(--status-medium)',
+                          display: 'inline-block',
+                        }} />
                         {loan.status}
                       </span>
                     </td>
@@ -292,13 +319,13 @@ export default function PoolInfoPage() {
                         <a
                           href={`${lora}/transaction/${loan.txnId}`}
                           target="_blank" rel="noreferrer"
-                          className="num"
-                          style={{ fontSize: 11, color: 'var(--ic-accent)', textDecoration: 'none', letterSpacing: '0.04em' }}
+                          className="mono"
+                          style={{ fontSize: 11, color: 'var(--accent-gold)', textDecoration: 'none', letterSpacing: '0.04em' }}
                         >
                           {loan.txnId.slice(0, 12)}… ↗
                         </a>
                       ) : (
-                        <span style={{ color: 'var(--ic-text-muted)', fontSize: 12 }}>—</span>
+                        <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>—</span>
                       )}
                     </td>
                   </tr>
@@ -307,9 +334,9 @@ export default function PoolInfoPage() {
                 <tr>
                   <td
                     colSpan={5}
-                    style={{ textAlign: 'center', padding: '32px 12px', color: 'var(--ic-text-muted)', fontSize: 12 }}
+                    style={{ textAlign: 'center', padding: '32px 12px', color: 'var(--text-muted)', fontSize: 12 }}
                   >
-                    No active loans. Pool is fully available.
+                    No active loans. ICC pool is fully available.
                   </td>
                 </tr>
               )}

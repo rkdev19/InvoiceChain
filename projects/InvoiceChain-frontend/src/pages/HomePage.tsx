@@ -17,15 +17,15 @@ function Ticker() {
   return (
     <div
       style={{
-        background: 'var(--ic-surface)',
-        borderTop: '1px solid var(--ic-border)',
-        borderBottom: '1px solid var(--ic-border)',
+        background: 'var(--bg-surface)',
+        borderTop: '1px solid var(--border-default)',
+        borderBottom: '1px solid var(--border-default)',
         overflow: 'hidden',
         padding: '10px 0',
       }}
     >
-      <div className="ic-ticker-track" style={{ display: 'inline-flex', whiteSpace: 'nowrap' }}>
-        <span className="num" style={{ color: 'var(--ic-text-muted)', fontSize: 12, paddingRight: 40 }}>
+      <div className="ticker-track" style={{ display: 'inline-flex', whiteSpace: 'nowrap' }}>
+        <span className="mono" style={{ color: 'var(--text-muted)', fontSize: 11, paddingRight: 40 }}>
           {TICKER}{TICKER}
         </span>
       </div>
@@ -41,29 +41,18 @@ function FeatureNumber({ value, label, description }: { value: string; label: st
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true }}
       transition={{ duration: 0.4 }}
-      style={{ borderTop: '1px solid var(--ic-border)', paddingTop: 28 }}
+      style={{ borderTop: '1px solid var(--border-default)', paddingTop: 28 }}
     >
       <div
-        className="serif"
-        style={{ fontSize: 48, lineHeight: 1, color: 'var(--ic-accent)', letterSpacing: '-0.02em' }}
+        className="display"
+        style={{ fontSize: 52, lineHeight: 1, color: 'var(--accent-gold)', letterSpacing: '-0.02em' }}
       >
         {value}
       </div>
-      <div
-        style={{
-          fontSize: 11,
-          fontWeight: 600,
-          letterSpacing: '0.1em',
-          textTransform: 'uppercase',
-          color: 'var(--ic-text-muted)',
-          marginTop: 10,
-          marginBottom: 8,
-          fontFamily: "'IBM Plex Sans', sans-serif",
-        }}
-      >
+      <div className="label-caps" style={{ marginTop: 12, marginBottom: 8 }}>
         {label}
       </div>
-      <p style={{ fontSize: 13, color: 'var(--ic-text-secondary)', lineHeight: 1.6, maxWidth: 280 }}>
+      <p style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.6, maxWidth: 280 }}>
         {description}
       </p>
     </motion.div>
@@ -77,18 +66,18 @@ function Step({ n, title, body }: { n: string; title: string; body: string }) {
       initial={{ opacity: 0, x: -8 }}
       whileInView={{ opacity: 1, x: 0 }}
       viewport={{ once: true }}
-      transition={{ duration: 0.35 }}
-      style={{ display: 'flex', gap: 20, paddingBottom: 28, borderBottom: '1px solid var(--ic-border-subtle)' }}
+      transition={{ duration: 0.3 }}
+      style={{ display: 'flex', gap: 20, paddingBottom: 28, borderBottom: '1px solid var(--border-subtle)' }}
     >
       <div
-        className="num"
-        style={{ fontSize: 12, color: 'var(--ic-accent)', minWidth: 28, paddingTop: 2, letterSpacing: '0.05em' }}
+        className="mono"
+        style={{ fontSize: 11, color: 'var(--accent-gold)', minWidth: 28, paddingTop: 2, letterSpacing: '0.06em' }}
       >
         {n}
       </div>
       <div>
-        <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ic-text)', marginBottom: 4 }}>{title}</div>
-        <div style={{ fontSize: 13, color: 'var(--ic-text-secondary)', lineHeight: 1.55 }}>{body}</div>
+        <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--text-primary)', marginBottom: 5 }}>{title}</div>
+        <div style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.55 }}>{body}</div>
       </div>
     </motion.div>
   )
@@ -100,7 +89,7 @@ export default function HomePage() {
   const featureRef = useRef<HTMLElement>(null)
 
   return (
-    <div style={{ background: 'var(--ic-bg)', minHeight: '100vh', color: 'var(--ic-text)' }}>
+    <div style={{ background: 'var(--bg-base)', minHeight: '100vh', color: 'var(--text-primary)' }}>
       {/* ── NAV ── */}
       <nav
         style={{
@@ -108,24 +97,17 @@ export default function HomePage() {
           alignItems: 'center',
           justifyContent: 'space-between',
           padding: '0 40px',
-          height: 56,
-          borderBottom: '1px solid var(--ic-border)',
-          background: 'var(--ic-surface)',
+          height: 52,
+          borderBottom: '1px solid var(--border-default)',
+          background: 'var(--bg-surface)',
           position: 'sticky',
           top: 0,
           zIndex: 50,
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div
-            style={{
-              width: 7,
-              height: 7,
-              background: 'var(--ic-accent)',
-              borderRadius: 1,
-            }}
-          />
-          <span style={{ fontSize: 13, fontWeight: 600, letterSpacing: '0.04em', color: 'var(--ic-text)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+          <div style={{ width: 5, height: 5, background: 'var(--accent-gold)' }} />
+          <span className="mono" style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.12em', color: 'var(--text-primary)' }}>
             INVOICECHAIN
           </span>
         </div>
@@ -137,11 +119,14 @@ export default function HomePage() {
               border: 'none',
               cursor: 'pointer',
               fontSize: 12,
-              color: 'var(--ic-text-secondary)',
+              color: 'var(--text-secondary)',
               letterSpacing: '0.06em',
               textTransform: 'uppercase',
               fontFamily: "'IBM Plex Sans', sans-serif",
+              transition: 'color 120ms',
             }}
+            onMouseEnter={e => ((e.currentTarget as HTMLButtonElement).style.color = 'var(--text-primary)')}
+            onMouseLeave={e => ((e.currentTarget as HTMLButtonElement).style.color = 'var(--text-secondary)')}
           >
             How it works
           </button>
@@ -151,47 +136,41 @@ export default function HomePage() {
         </div>
       </nav>
 
+      {/* ── GOLD RULE ── */}
+      <div style={{ height: 3, background: 'var(--accent-gold)' }} />
+
       {/* ── HERO ── */}
-      <section
-        style={{
-          padding: '96px 40px 80px',
-          maxWidth: 900,
-          margin: '0 auto',
-        }}
-      >
+      <section style={{ padding: '100px 40px 80px', maxWidth: 860, margin: '0 auto' }}>
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
+          transition={{ duration: 0.45 }}
         >
           {/* Eyebrow */}
           <div
-            className="num"
+            className="mono"
             style={{
               fontSize: 11,
-              letterSpacing: '0.15em',
+              letterSpacing: '0.14em',
               textTransform: 'uppercase',
-              color: 'var(--ic-accent)',
-              marginBottom: 28,
+              color: 'var(--accent-gold)',
+              marginBottom: 32,
             }}
           >
             Algorand Blockchain · Invoice Finance Protocol
           </div>
 
-          {/* Main heading */}
+          {/* Main heading — Epilogue */}
           <h1
-            className="serif"
+            className="display"
             style={{
-              fontSize: 'clamp(44px, 6vw, 72px)',
-              lineHeight: 1.08,
-              letterSpacing: '-0.02em',
-              color: 'var(--ic-text)',
+              fontSize: 'clamp(48px, 6.5vw, 76px)',
+              color: 'var(--text-primary)',
               marginBottom: 28,
-              fontWeight: 400,
             }}
           >
             Invoice Financing,<br />
-            <span style={{ color: 'var(--ic-accent)', fontStyle: 'italic' }}>Reimagined.</span>
+            Reimagined.
           </h1>
 
           {/* Subtext */}
@@ -199,23 +178,23 @@ export default function HomePage() {
             style={{
               fontSize: 16,
               lineHeight: 1.65,
-              color: 'var(--ic-text-secondary)',
-              maxWidth: 480,
+              color: 'var(--text-secondary)',
+              maxWidth: 460,
               marginBottom: 40,
               fontWeight: 300,
             }}
           >
-            Upload your invoice. Receive an on-chain trust score. Mint a verified NFT. Borrow against it in seconds —
-            no banks, no intermediaries, no waiting.
+            Upload your invoice. Receive an on-chain trust score. Mint a verified NFT.
+            Borrow ICC against it in seconds — no banks, no intermediaries.
           </p>
 
           {/* CTAs */}
-          <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-            <button className="btn-primary" style={{ fontSize: 13 }} onClick={() => navigate('/app')}>
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+            <button className="btn-primary" style={{ fontSize: 13, padding: '10px 24px' }} onClick={() => navigate('/app')}>
               Start Financing →
             </button>
             <button
-              className="btn-ghost"
+              className="btn-secondary"
               style={{ fontSize: 12 }}
               onClick={() => featureRef.current?.scrollIntoView({ behavior: 'smooth' })}
             >
@@ -231,7 +210,7 @@ export default function HomePage() {
       {/* ── FEATURE NUMBERS ── */}
       <section
         ref={featureRef}
-        style={{ maxWidth: 900, margin: '0 auto', padding: '80px 40px' }}
+        style={{ maxWidth: 860, margin: '0 auto', padding: '80px 40px' }}
       >
         <div
           style={{
@@ -248,7 +227,7 @@ export default function HomePage() {
           <FeatureNumber
             value="< 3s"
             label="Settlement Time"
-            description="Smart contract execution on Algorand settles in under 3 seconds. Funds arrive in your wallet the moment you sign."
+            description="Smart contract execution on Algorand settles in under 3 seconds. ICC lands in your wallet the moment you sign."
           />
           <FeatureNumber
             value="100%"
@@ -261,7 +240,7 @@ export default function HomePage() {
       {/* ── HOW IT WORKS ── */}
       <section
         style={{
-          maxWidth: 900,
+          maxWidth: 860,
           margin: '0 auto',
           padding: '0 40px 80px',
           display: 'grid',
@@ -271,17 +250,17 @@ export default function HomePage() {
         }}
       >
         {/* Left: heading */}
-        <div style={{ position: 'sticky', top: 80 }}>
+        <div style={{ position: 'sticky', top: 72 }}>
           <div className="label-caps" style={{ marginBottom: 16 }}>Protocol Overview</div>
           <h2
-            className="serif"
-            style={{ fontSize: 36, lineHeight: 1.15, color: 'var(--ic-text)', fontWeight: 400, marginBottom: 16 }}
+            className="display"
+            style={{ fontSize: 36, color: 'var(--text-primary)', marginBottom: 16 }}
           >
             Four steps to<br />instant credit.
           </h2>
-          <p style={{ fontSize: 13, color: 'var(--ic-text-secondary)', lineHeight: 1.6 }}>
-            The entire flow — from invoice upload to ALGO in your wallet — runs on-chain. No approval queues.
-            No KYC bottlenecks. Just a smart contract and your signature.
+          <p style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+            The entire flow — from invoice upload to ICC in your wallet — runs on-chain.
+            No approval queues. No KYC bottlenecks. Just a smart contract and your signature.
           </p>
           <div style={{ marginTop: 28 }}>
             <button className="btn-primary" onClick={() => navigate('/app')}>
@@ -295,8 +274,8 @@ export default function HomePage() {
           {[
             { n: '01', title: 'Upload Invoice', body: 'Enter your invoice details — amount, due date, client name. Your data stays on your device.' },
             { n: '02', title: 'Receive Trust Score', body: 'An algorithm analyses your repayment history and issues a 0–100 trust score with a risk classification.' },
-            { n: '03', title: 'Mint Invoice NFT', body: 'Your invoice is tokenised as an ARC-3 NFT on Algorand. The NFT serves as collateral — immutable, transferable, verifiable.' },
-            { n: '04', title: 'Borrow Instantly', body: 'Draw ALGO up to your borrow limit. Funds are released by the smart contract directly to your wallet.' },
+            { n: '03', title: 'Mint Invoice NFT', body: 'Your invoice is tokenised as an ARC-3 NFT on Algorand. The NFT is held in the contract as collateral — immutable and verifiable.' },
+            { n: '04', title: 'Borrow ICC Instantly', body: 'Draw InvoiceChain Credit (ICC) up to your borrow limit. Tokens are released by the smart contract directly to your wallet.' },
           ].map(s => (
             <Step key={s.n} {...s} />
           ))}
@@ -306,46 +285,32 @@ export default function HomePage() {
       {/* ── FOOTER ── */}
       <footer
         style={{
-          borderTop: '1px solid var(--ic-border)',
-          background: 'var(--ic-surface)',
-          padding: '24px 40px',
+          borderTop: '1px solid var(--border-default)',
+          background: 'var(--bg-surface)',
+          padding: '20px 40px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
           gap: 16,
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{ width: 6, height: 6, background: 'var(--ic-accent)', borderRadius: 1 }} />
-          <span className="num" style={{ fontSize: 11, color: 'var(--ic-text-muted)', letterSpacing: '0.1em' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+          <div style={{ width: 5, height: 5, background: 'var(--accent-gold)' }} />
+          <span className="mono" style={{ fontSize: 10, color: 'var(--text-muted)', letterSpacing: '0.10em' }}>
             INVOICECHAIN CREDIT
           </span>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 24 }}>
-          <span style={{ fontSize: 12, color: 'var(--ic-text-muted)' }}>
-            Built on{' '}
-            <a
-              href="https://algorand.org"
-              target="_blank" rel="noreferrer"
-              style={{ color: 'var(--ic-accent)', textDecoration: 'none' }}
-            >
-              Algorand
-            </a>
-          </span>
-          <div className="num" style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--ic-text-muted)' }}>
-            <span
-              style={{
-                width: 6,
-                height: 6,
-                borderRadius: '50%',
-                background: 'var(--ic-positive)',
-                display: 'inline-block',
-              }}
-            />
-            LOCALNET
-          </div>
-        </div>
+        <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+          Built on{' '}
+          <a
+            href="https://algorand.org"
+            target="_blank" rel="noreferrer"
+            style={{ color: 'var(--accent-gold)', textDecoration: 'none' }}
+          >
+            Algorand
+          </a>
+        </span>
       </footer>
     </div>
   )

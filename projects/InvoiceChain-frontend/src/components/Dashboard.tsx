@@ -38,7 +38,8 @@ const Dashboard: React.FC = () => {
         ctx.appClient.getInvoiceInfo(),
         (ctx.appClient as InvoiceClient).send.getPoolBalance({ args: [] }),
       ])
-      // [amount, dueDate, trustScore, riskLevel, borrowLimit, isBorrowed, borrowedAmount, nftAssetId]
+      // 11-tuple: amount, due_date, trust_score, risk_level, borrow_limit,
+      //           is_borrowed, borrowed_amount, nft_asset_id, collateral_locked, status, icc_asset_id
       const [, , , riskLevel, borrowLimit, isBorrowed, borrowedAmount, nftAssetId] = info
       ctx.setRiskLevel(riskLevel)
       ctx.setBorrowLimit(Number(borrowLimit))
@@ -66,13 +67,15 @@ const Dashboard: React.FC = () => {
       const algorand = AlgorandClient.fromConfig({ algodConfig, indexerConfig })
       algorand.setDefaultSigner(transactionSigner)
 
-      // repay(pay) takes a grouped payment txn; SDK will combine into atomic group
+      // repay(axfer) takes a grouped ICC asset-transfer
+      if (!ctx.iccAssetId) throw new Error('ICC asset not initialised')
       const result = await ctx.appClient.send.repay({
         args: {
-          payment: algorand.createTransaction.payment({
+          iccTransfer: algorand.createTransaction.assetTransfer({
             sender: activeAddress,
             receiver: ctx.appAddress,
-            amount: microAlgos(Number(ctx.borrowedAmount)),
+            assetId: ctx.iccAssetId,
+            amount: ctx.borrowedAmount,
           }),
         },
         sender: activeAddress,
