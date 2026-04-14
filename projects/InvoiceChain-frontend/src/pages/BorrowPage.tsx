@@ -44,8 +44,13 @@ export default function BorrowPage() {
 
       // Ensure caller is opted into ICC before borrowing
       const acctInfo = await algorand.account.getInformation(activeAddress)
-      const assetsList = acctInfo.assets as Array<{ 'asset-id': bigint | number }> | undefined
-      const isOptedIn = assetsList?.some(a => BigInt(a['asset-id']) === ctx.iccAssetId)
+      // algosdk v3 uses camelCase `assetId`; normalise both shapes defensively
+      type AssetEntry = { assetId?: bigint | number; 'asset-id'?: bigint | number }
+      const assetsList = acctInfo.assets as AssetEntry[] | undefined
+      const isOptedIn = assetsList?.some(a => {
+        const id = a.assetId ?? a['asset-id']
+        return id !== undefined && BigInt(id) === ctx.iccAssetId
+      })
       if (!isOptedIn) {
         await algorand.send.assetOptIn({
           sender: activeAddress,

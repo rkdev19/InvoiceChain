@@ -62,11 +62,15 @@ function Sidebar() {
     algorand.account.getInformation(activeAddress)
       .then(rawInfo => {
         // Cast to any — AccountInformation shape varies between algokit-utils versions
-        const info = rawInfo as unknown as { amount: number | bigint; assets?: Array<{ 'asset-id': number | bigint; amount: number | bigint }> }
+        type AssetEntry = { assetId?: number | bigint; 'asset-id'?: number | bigint; amount: number | bigint }
+        const info = rawInfo as unknown as { amount: number | bigint; assets?: AssetEntry[] }
         setBalance((Number(info.amount) / 1e6).toFixed(3))
         // Check ICC balance if we know the asset ID
         if (ctx.iccAssetId) {
-          const iccEntry = info.assets?.find(a => BigInt(a['asset-id']) === ctx.iccAssetId)
+          const iccEntry = info.assets?.find(a => {
+            const id = a.assetId ?? a['asset-id']
+            return id !== undefined && BigInt(id) === ctx.iccAssetId
+          })
           if (iccEntry) {
             setIccBalance((Number(iccEntry.amount) / 100).toFixed(2))
           } else {
