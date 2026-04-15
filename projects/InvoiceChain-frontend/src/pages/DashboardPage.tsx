@@ -498,6 +498,61 @@ export default function DashboardPage() {
                     </td>
                   </tr>
                 )}
+
+                {/* Past invoices (history) */}
+                {ctx.pastInvoices.slice().reverse().map(inv => {
+                  const pastRiskColor = getRiskColor(inv.riskLevel)
+                  const pastStatusColor =
+                    inv.invoiceStatus === 'REPAID'      ? 'var(--status-low)' :
+                    inv.invoiceStatus === 'LIQUIDATED'  ? 'var(--status-liquidated)' :
+                    'var(--text-muted)'
+                  return (
+                    <tr key={String(inv.nftAssetId)} style={{ opacity: 0.55 }}>
+                      <td>
+                        <a
+                          href={`${lora}/asset/${inv.nftAssetId}`}
+                          target="_blank" rel="noreferrer"
+                          className="mono"
+                          style={{ fontSize: 11, color: 'var(--text-muted)', textDecoration: 'none', letterSpacing: '0.04em' }}
+                        >
+                          {String(inv.nftAssetId)} ↗
+                        </a>
+                      </td>
+                      <td>
+                        <span className="mono" style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                          {inv.amount ? `₹${inv.amount.toLocaleString('en-IN')}` : '—'}
+                        </span>
+                      </td>
+                      <td>
+                        <span className="mono" style={{ fontSize: 11, color: 'var(--text-muted)' }}>{inv.dueDate || '—'}</span>
+                      </td>
+                      <td>
+                        <span className="mono" style={{ fontSize: 12, color: pastRiskColor, fontWeight: 600 }}>{inv.trustScore}</span>
+                      </td>
+                      <td>
+                        <RiskDot risk={inv.riskLevel} />
+                      </td>
+                      <td>
+                        <span
+                          className="mono"
+                          style={{
+                            fontSize: 10,
+                            letterSpacing: '0.08em',
+                            color: pastStatusColor,
+                            border: `1px solid ${pastStatusColor}`,
+                            padding: '2px 6px',
+                            borderRadius: 2,
+                          }}
+                        >
+                          {inv.invoiceStatus}
+                        </span>
+                      </td>
+                      <td>
+                        <span className="mono" style={{ fontSize: 10, color: 'var(--text-muted)' }}>—</span>
+                      </td>
+                    </tr>
+                  )
+                })}
                 </>
               ) : (
                 <tr>

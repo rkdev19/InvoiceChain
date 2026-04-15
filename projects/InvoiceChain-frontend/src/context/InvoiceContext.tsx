@@ -2,6 +2,17 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { InvoiceClient } from '../contracts/Invoice'
 import type { GstData } from '../utils/verifyGstin'
 
+export interface PastInvoice {
+  nftAssetId: bigint
+  amount: number
+  dueDate: string
+  trustScore: number
+  riskLevel: string
+  invoiceStatus: string
+  mintTxnId: string | null
+  documentHash: string | null
+}
+
 // ── Persistence helpers ───────────────────────────────────────────
 // JSON doesn't support BigInt — store as { __bigint: "123" } objects.
 const STORAGE_KEY = 'ic_state_v1'
@@ -38,6 +49,7 @@ interface PersistedState {
   gstData: GstData | null
   documentHash: string | null
   documentName: string | null
+  pastInvoices: PastInvoice[]
 }
 
 function loadPersistedState(): Partial<PersistedState> {
@@ -83,6 +95,8 @@ interface InvoiceState extends PersistedState {
   setDocumentHash: (v: string | null) => void
   setDocumentName: (v: string | null) => void
 
+  setPastInvoices: (v: PastInvoice[]) => void
+
   appClient: InvoiceClient | null
   setAppClient: (v: InvoiceClient | null) => void
 }
@@ -113,6 +127,7 @@ export const InvoiceProvider = ({ children }: { children: ReactNode }) => {
   const [gstData, setGstData]         = useState<GstData | null>(saved.gstData ?? null)
   const [documentHash, setDocumentHash] = useState<string | null>(saved.documentHash ?? null)
   const [documentName, setDocumentName] = useState<string | null>(saved.documentName ?? null)
+  const [pastInvoices, setPastInvoices] = useState<PastInvoice[]>(saved.pastInvoices ?? [])
   const [appClient, setAppClient]     = useState<InvoiceClient | null>(null) // reconstructed at runtime
 
   // Sync persisted fields to localStorage whenever they change
@@ -125,6 +140,7 @@ export const InvoiceProvider = ({ children }: { children: ReactNode }) => {
       iccAssetId, collateralLocked, invoiceStatus,
       gstVerified, gstData,
       documentHash, documentName,
+      pastInvoices,
     }
     try {
       localStorage.setItem(STORAGE_KEY, serialize(state))
@@ -137,6 +153,7 @@ export const InvoiceProvider = ({ children }: { children: ReactNode }) => {
     iccAssetId, collateralLocked, invoiceStatus,
     gstVerified, gstData,
     documentHash, documentName,
+    pastInvoices,
   ])
 
   return (
@@ -163,6 +180,7 @@ export const InvoiceProvider = ({ children }: { children: ReactNode }) => {
         gstData, setGstData,
         documentHash, setDocumentHash,
         documentName, setDocumentName,
+        pastInvoices, setPastInvoices,
         appClient, setAppClient,
       }}
     >

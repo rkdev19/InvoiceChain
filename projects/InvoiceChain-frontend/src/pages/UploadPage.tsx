@@ -12,6 +12,7 @@ import { loraBase } from '../utils/lora'
 import { verifyGstin } from '../utils/verifyGstin'
 import type { GstData } from '../utils/verifyGstin'
 import { parseError } from '../utils/parseError'
+import type { PastInvoice } from '../context/InvoiceContext'
 
 // ── Arc gauge ────────────────────────────────────────────────────
 const R = 48
@@ -651,6 +652,21 @@ export default function UploadPage() {
     }
     setMinting(true)
     try {
+      // ── Archive previous invoice before minting a new one ─────────
+      if (ctx.nftAssetId) {
+        const archived: PastInvoice = {
+          nftAssetId: ctx.nftAssetId,
+          amount: ctx.amount,
+          dueDate: ctx.dueDate,
+          trustScore: ctx.trustScore,
+          riskLevel: ctx.riskLevel || 'HIGH',
+          invoiceStatus: ctx.invoiceStatus || 'ACTIVE',
+          mintTxnId: ctx.mintTxnId,
+          documentHash: ctx.documentHash,
+        }
+        ctx.setPastInvoices([...ctx.pastInvoices, archived])
+      }
+
       const algodConfig = getAlgodConfigFromViteEnvironment()
       const indexerConfig = getIndexerConfigFromViteEnvironment()
       const algorand = AlgorandClient.fromConfig({ algodConfig, indexerConfig })
@@ -936,26 +952,52 @@ export default function UploadPage() {
               {/* Mint section */}
               <div style={{ marginTop: 24, borderTop: '1px solid var(--border-default)', paddingTop: 20 }}>
                 {ctx.nftAssetId !== null ? (
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
-                    <div>
-                      <div className="label-caps" style={{ marginBottom: 4 }}>Invoice NFT Minted</div>
-                      <a
-                        href={`${lora}/asset/${ctx.nftAssetId}`}
-                        target="_blank" rel="noreferrer"
-                        className="mono"
-                        style={{ fontSize: 11, color: 'var(--accent-gold)', textDecoration: 'none', letterSpacing: '0.04em' }}
-                      >
-                        Asset {String(ctx.nftAssetId)} ↗
-                      </a>
-                      {ctx.iccAssetId !== null && (
-                        <div className="mono" style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 4, letterSpacing: '0.04em' }}>
-                          ICC: {String(ctx.iccAssetId)}
-                        </div>
-                      )}
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, marginBottom: 12 }}>
+                      <div>
+                        <div className="label-caps" style={{ marginBottom: 4 }}>Invoice NFT Minted</div>
+                        <a
+                          href={`${lora}/asset/${ctx.nftAssetId}`}
+                          target="_blank" rel="noreferrer"
+                          className="mono"
+                          style={{ fontSize: 11, color: 'var(--accent-gold)', textDecoration: 'none', letterSpacing: '0.04em' }}
+                        >
+                          Asset {String(ctx.nftAssetId)} ↗
+                        </a>
+                        {ctx.iccAssetId !== null && (
+                          <div className="mono" style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 4, letterSpacing: '0.04em' }}>
+                            ICC: {String(ctx.iccAssetId)}
+                          </div>
+                        )}
+                      </div>
                     </div>
-                    <button className="btn-primary" onClick={() => navigate('/app/borrow')}>
-                      Borrow ICC →
-                    </button>
+                    {ctx.isBorrowed ? (
+                      /* Active loan — must repay before new invoice */
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
+                        <div style={{ fontSize: 12, color: 'var(--status-medium)', fontFamily: "'IBM Plex Sans', sans-serif", lineHeight: 1.5 }}>
+                          Active loan in progress — repay first to mint a new invoice.
+                        </div>
+                        <button className="btn-primary" onClick={() => navigate('/app/repay')}
+                          style={{ border: '1px solid var(--status-medium)', color: 'var(--status-medium)', background: 'transparent', whiteSpace: 'nowrap', flexShrink: 0 }}>
+                          Repay Loan →
+                        </button>
+                      </div>
+                    ) : (
+                      /* No active loan — can re-borrow or start fresh */
+                      <div style={{ display: 'flex', gap: 10 }}>
+                        <button className="btn-primary" onClick={() => navigate('/app/borrow')}>
+                          Re-Borrow ICC →
+                        </button>
+                        <button
+                          onClick={handleMint}
+                          disabled={minting || !activeAddress}
+                          className="btn-secondary"
+                          style={{ whiteSpace: 'nowrap' }}
+                        >
+                          {minting ? 'Deploying…' : 'Mint New Invoice →'}
+                        </button>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>

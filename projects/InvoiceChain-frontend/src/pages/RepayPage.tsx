@@ -153,6 +153,7 @@ export default function RepayPage() {
       ctx.setIsBorrowed(false)
       ctx.setBorrowedAmount(0n)
       ctx.setCollateralLocked(false)
+      ctx.setInvoiceStatus('REPAID')
       setSuccessTxn(txnId)
     } catch (err: unknown) {
       const msg = parseError(err)
