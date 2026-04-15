@@ -106,7 +106,7 @@ export default function HomePage() {
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
-          <div style={{ width: 5, height: 5, background: 'var(--accent-gold)' }} />
+          <img src="/logo-32x32.png" alt="IC" style={{ width: 22, height: 22 }} />
           <span className="mono" style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.12em', color: 'var(--text-primary)' }}>
             INVOICECHAIN
           </span>
@@ -295,7 +295,7 @@ export default function HomePage() {
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
-          <div style={{ width: 5, height: 5, background: 'var(--accent-gold)' }} />
+          <img src="/logo-32x32.png" alt="IC" style={{ width: 18, height: 18 }} />
           <span className="mono" style={{ fontSize: 10, color: 'var(--text-muted)', letterSpacing: '0.10em' }}>
             INVOICECHAIN CREDIT
           </span>

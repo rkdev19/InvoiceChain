@@ -32,21 +32,19 @@ export default function WalletGate({ children }: WalletGateProps) {
               gap: 0,
             }}
           >
-            {/* "IC" monogram — pulsing */}
-            <motion.div
+            {/* Logo — pulsing */}
+            <motion.img
+              src="/logo-480x480.png"
+              alt="InvoiceChain Credit"
               animate={{ scale: [1, 1.05, 1] }}
               transition={{ duration: 2, ease: 'easeInOut', repeat: Infinity }}
-              className="display"
               style={{
-                fontSize: 32,
-                color: 'var(--accent-gold)',
-                letterSpacing: '-0.02em',
-                lineHeight: 1,
+                width: 96,
+                height: 96,
+                borderRadius: 14,
                 marginBottom: 20,
               }}
-            >
-              IC
-            </motion.div>
+            />
 
             {/* Thin separator */}
             <div

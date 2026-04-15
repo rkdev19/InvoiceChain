@@ -118,7 +118,7 @@ function Sidebar() {
           gap: 9,
         }}
       >
-        <div style={{ width: 5, height: 5, background: 'var(--accent-gold)', flexShrink: 0 }} />
+        <img src="/logo-32x32.png" alt="IC" style={{ width: 22, height: 22, flexShrink: 0 }} />
         <span
           className="mono"
           style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.12em', color: 'var(--text-primary)' }}
