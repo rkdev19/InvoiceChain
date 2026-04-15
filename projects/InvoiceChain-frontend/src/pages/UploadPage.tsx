@@ -401,37 +401,73 @@ export default function UploadPage() {
 
       // ── Signature 1: Deploy contract ──────────────────────────────
       const factory = new InvoiceFactory({ defaultSender: activeAddress, algorand })
-      const { appClient } = await factory.deploy({ onSchemaBreak: 'append', onUpdate: 'append' })
+      const { appClient, result: deployResult } = await factory.deploy({ onSchemaBreak: 'append', onUpdate: 'append' })
       const appAddress = String(appClient.appClient.appAddress)
+      const isNewContract = deployResult.operationPerformed === 'create'
 
       const dueDateUnix = dueDate
         ? BigInt(Math.floor(new Date(dueDate).getTime() / 1000))
         : 2_000_000_000n
 
-      // ── Signature 2: Fund + setup_icc + create_invoice (one atomic group) ──
-      const groupResult = await algorand
-        .newGroup()
-        .addPayment({
-          sender: activeAddress,
-          receiver: appAddress,
-          amount: microAlgos(400_000), // 0.4 ALGO: covers MBR for base + ICC ASA + NFT ASA
-        })
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        .addAppCallMethodCall(await appClient.params.setupIcc({ args: [], extraFee: microAlgos(1000) }) as any)
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        .addAppCallMethodCall(await appClient.params.createInvoice({
-          args: {
-            amount: BigInt(ctx.amount),
-            dueDate: dueDateUnix,
-            trustScore: BigInt(ctx.trustScore),
-          },
-          extraFee: microAlgos(1000),
-        }) as any)
-        .execute()
+      let iccAssetId: bigint
+      let assetId: bigint
+      let txnId: string
 
-      const iccAssetId = groupResult.returns?.[0]?.returnValue as bigint
-      const assetId = groupResult.returns?.[1]?.returnValue as bigint
-      const txnId = groupResult.txIds[groupResult.txIds.length - 1]
+      if (isNewContract) {
+        // ── Signature 2a: Fresh contract — Fund + setup_icc + create_invoice ──
+        // 0.4 ALGO covers MBR for base account + ICC ASA + NFT ASA.
+        // extraFee on each app call pays for the inner transaction fee.
+        const groupResult = await algorand
+          .newGroup()
+          .addPayment({
+            sender: activeAddress,
+            receiver: appAddress,
+            amount: microAlgos(400_000),
+          })
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          .addAppCallMethodCall(await appClient.params.setupIcc({ args: [], extraFee: microAlgos(1000) }) as any)
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          .addAppCallMethodCall(await appClient.params.createInvoice({
+            args: {
+              amount: BigInt(ctx.amount),
+              dueDate: dueDateUnix,
+              trustScore: BigInt(ctx.trustScore),
+            },
+            extraFee: microAlgos(1000),
+          }) as any)
+          .execute()
+
+        iccAssetId = groupResult.returns?.[0]?.returnValue as bigint
+        assetId    = groupResult.returns?.[1]?.returnValue as bigint
+        txnId      = groupResult.txIds[groupResult.txIds.length - 1]
+      } else {
+        // ── Signature 2b: Existing contract — ICC already set up, only create_invoice ──
+        // 0.2 ALGO covers MBR for the new NFT ASA + inner tx fee buffer.
+        const groupResult = await algorand
+          .newGroup()
+          .addPayment({
+            sender: activeAddress,
+            receiver: appAddress,
+            amount: microAlgos(200_000),
+          })
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          .addAppCallMethodCall(await appClient.params.createInvoice({
+            args: {
+              amount: BigInt(ctx.amount),
+              dueDate: dueDateUnix,
+              trustScore: BigInt(ctx.trustScore),
+            },
+            extraFee: microAlgos(1000),
+          }) as any)
+          .execute()
+
+        assetId = groupResult.returns?.[0]?.returnValue as bigint
+        txnId   = groupResult.txIds[groupResult.txIds.length - 1]
+
+        // Read existing ICC asset ID from contract state
+        const info = await appClient.getInvoiceInfo()
+        iccAssetId = info[10] as bigint // 11-tuple index 10 = icc_asset_id
+      }
 
       ctx.setAppId(BigInt(appClient.appClient.appId))
       ctx.setAppAddress(appAddress)
