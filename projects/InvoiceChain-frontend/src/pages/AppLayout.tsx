@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { useWallet } from '@txnlab/use-wallet-react'
@@ -7,6 +7,7 @@ import { getAlgodConfigFromViteEnvironment, getIndexerConfigFromViteEnvironment 
 import { useInvoice } from '../context/InvoiceContext'
 import WalletGate from '../components/WalletGate'
 import { InvoiceClient } from '../contracts/Invoice'
+import { restoreFromChain } from '../utils/restoreFromChain'
 
 // ── Minimal 14×14 SVG icons ──────────────────────────────────────
 const Icons = {
@@ -307,23 +308,57 @@ export default function AppLayout() {
   const { pathname } = useLocation()
   const { activeAddress, transactionSigner } = useWallet()
   const ctx = useInvoice()
+  const [syncing, setSyncing] = useState(false)
 
-  // Keep signer in a ref so the effect below doesn't re-run on every sign
+  // Keep signer in a ref so effects don't re-run on every wallet state change
   const signerRef = useRef(transactionSigner)
   signerRef.current = transactionSigner
 
-  // Reconstruct appClient from persisted appId after a page refresh
-  useEffect(() => {
-    if (!ctx.appId || ctx.appClient || !activeAddress) return
+  const buildAlgorand = useCallback(() => {
     const algodConfig = getAlgodConfigFromViteEnvironment()
     const indexerConfig = getIndexerConfigFromViteEnvironment()
     const algorand = AlgorandClient.fromConfig({ algodConfig, indexerConfig })
     algorand.setDefaultSigner(signerRef.current)
+    return algorand
+  }, [])
+
+  // ── Path A: localStorage had appId — just reconstruct the client ──
+  useEffect(() => {
+    if (!ctx.appId || ctx.appClient || !activeAddress) return
+    const algorand = buildAlgorand()
     ctx.setAppClient(
       new InvoiceClient({ appId: ctx.appId, defaultSender: activeAddress, algorand })
     )
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ctx.appId, ctx.appClient, activeAddress])
+
+  // ── Path B: No localStorage data — search chain by wallet address ──
+  useEffect(() => {
+    if (!activeAddress || ctx.appId) return   // only runs on a fresh device/browser
+    setSyncing(true)
+    const algorand = buildAlgorand()
+    restoreFromChain(activeAddress, algorand)
+      .then(result => {
+        if (!result) return
+        ctx.setAppId(result.appId)
+        ctx.setAppAddress(result.appAddress)
+        ctx.setAppClient(result.appClient)
+        ctx.setAmount(result.amount)
+        ctx.setDueDate(result.dueDate)
+        ctx.setTrustScore(result.trustScore)
+        ctx.setRiskLevel(result.riskLevel)
+        ctx.setBorrowLimit(result.borrowLimit)
+        ctx.setIsBorrowed(result.isBorrowed)
+        ctx.setBorrowedAmount(result.borrowedAmount)
+        ctx.setNftAssetId(result.nftAssetId)
+        ctx.setCollateralLocked(result.collateralLocked)
+        ctx.setInvoiceStatus(result.invoiceStatus)
+        ctx.setIccAssetId(result.iccAssetId)
+      })
+      .catch(() => { /* indexer unavailable or wallet has no Invoice contracts */ })
+      .finally(() => setSyncing(false))
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeAddress])
 
   return (
     <div style={{ display: 'flex', height: '100vh', background: 'var(--bg-base)' }}>
@@ -357,19 +392,49 @@ export default function AppLayout() {
             </span>
           </div>
 
-          <div
-            className="mono"
-            style={{
-              fontSize: 10,
-              letterSpacing: '0.10em',
-              textTransform: 'uppercase',
-              color: 'var(--text-muted)',
-              padding: '3px 8px',
-              border: '1px solid var(--border-default)',
-              borderRadius: 2,
-            }}
-          >
-            {import.meta.env.VITE_ALGOD_NETWORK ?? 'localnet'}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            {/* Chain sync indicator */}
+            {syncing && (
+              <span
+                className="mono"
+                style={{
+                  fontSize: 10,
+                  color: 'var(--accent-gold)',
+                  letterSpacing: '0.08em',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                }}
+              >
+                <motion.span
+                  animate={{ opacity: [1, 0.3, 1] }}
+                  transition={{ duration: 1.2, repeat: Infinity, ease: 'easeInOut' }}
+                  style={{
+                    display: 'inline-block',
+                    width: 5,
+                    height: 5,
+                    borderRadius: '50%',
+                    background: 'var(--accent-gold)',
+                  }}
+                />
+                Syncing from chain…
+              </span>
+            )}
+
+            <div
+              className="mono"
+              style={{
+                fontSize: 10,
+                letterSpacing: '0.10em',
+                textTransform: 'uppercase',
+                color: 'var(--text-muted)',
+                padding: '3px 8px',
+                border: '1px solid var(--border-default)',
+                borderRadius: 2,
+              }}
+            >
+              {import.meta.env.VITE_ALGOD_NETWORK ?? 'localnet'}
+            </div>
           </div>
         </header>
 
