@@ -9,6 +9,7 @@ import AppLayout from './pages/AppLayout'
 import DashboardPage from './pages/DashboardPage'
 import UploadPage from './pages/UploadPage'
 import BorrowPage from './pages/BorrowPage'
+import RepayPage from './pages/RepayPage'
 import PoolInfoPage from './pages/PoolInfoPage'
 
 let supportedWallets: SupportedWallet[]
@@ -64,7 +65,7 @@ export default function App() {
                 <Route index element={<DashboardPage />} />
                 <Route path="upload" element={<UploadPage />} />
                 <Route path="borrow" element={<BorrowPage />} />
-                <Route path="repay" element={<DashboardPage />} />
+                <Route path="repay" element={<RepayPage />} />
                 <Route path="pool" element={<PoolInfoPage />} />
               </Route>
 

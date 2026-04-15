@@ -11,6 +11,7 @@ import { InvoiceFactory } from '../contracts/Invoice'
 import { loraBase } from '../utils/lora'
 import { verifyGstin } from '../utils/verifyGstin'
 import type { GstData } from '../utils/verifyGstin'
+import { parseError } from '../utils/parseError'
 
 // ── Arc gauge ────────────────────────────────────────────────────
 const R = 48
@@ -320,6 +321,252 @@ function GstSection({
   )
 }
 
+// ── PDF helpers ───────────────────────────────────────────────────
+async function hashFile(file: File): Promise<string> {
+  const buffer = await file.arrayBuffer()
+  const hashBuffer = await crypto.subtle.digest('SHA-256', buffer)
+  const hashArray = Array.from(new Uint8Array(hashBuffer))
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
+}
+
+function formatSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
+// ── PDF drop zone ─────────────────────────────────────────────────
+function PdfSection({
+  onHashed,
+  onRemoved,
+  initialHash,
+  initialName,
+}: {
+  onHashed: (hash: string, name: string) => void
+  onRemoved: () => void
+  initialHash: string | null
+  initialName: string | null
+}) {
+  const [pdfFile, setPdfFile]     = useState<File | null>(null)
+  const [localHash, setLocalHash] = useState<string | null>(null)
+  const [hashState, setHashState] = useState<'idle' | 'hashing' | 'done'>(
+    initialHash ? 'done' : 'idle'
+  )
+  const [isDragging, setIsDragging]   = useState(false)
+  const [isHovering, setIsHovering]   = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const currentHash = localHash ?? initialHash
+  const displayName = pdfFile?.name ?? initialName
+  const showCard    = !!pdfFile || !!initialHash
+
+  const processFile = async (file: File) => {
+    if (!file.name.toLowerCase().endsWith('.pdf') && file.type !== 'application/pdf') return
+    setPdfFile(file)
+    setHashState('hashing')
+    setLocalHash(null)
+    try {
+      const hash = await hashFile(file)
+      setLocalHash(hash)
+      setHashState('done')
+      onHashed(hash, file.name)
+    } catch {
+      setHashState('idle')
+      setPdfFile(null)
+    }
+  }
+
+  const handleRemove = () => {
+    setPdfFile(null)
+    setLocalHash(null)
+    setHashState('idle')
+    if (fileInputRef.current) fileInputRef.current.value = ''
+    onRemoved()
+  }
+
+  const zoneActive = isDragging || isHovering
+
+  return (
+    <div style={{ marginBottom: 28 }}>
+      {/* Section header */}
+      <div
+        className="mono"
+        style={{
+          fontSize: 11,
+          color: 'var(--text-muted)',
+          letterSpacing: '0.12em',
+          textTransform: 'uppercase',
+          marginBottom: 16,
+          paddingBottom: 10,
+          borderBottom: '1px solid var(--border-subtle)',
+        }}
+      >
+        Invoice Document
+      </div>
+
+      {/* Hidden file input */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".pdf,application/pdf"
+        style={{ display: 'none' }}
+        onChange={e => {
+          const file = e.target.files?.[0]
+          if (file) void processFile(file)
+        }}
+      />
+
+      {!showCard ? (
+        /* ── Drop zone ── */
+        <div
+          onDragOver={e => { e.preventDefault(); setIsDragging(true) }}
+          onDragEnter={e => { e.preventDefault(); setIsDragging(true) }}
+          onDragLeave={e => { e.preventDefault(); setIsDragging(false) }}
+          onDrop={e => {
+            e.preventDefault()
+            setIsDragging(false)
+            const file = e.dataTransfer.files[0]
+            if (file) void processFile(file)
+          }}
+          onMouseEnter={() => setIsHovering(true)}
+          onMouseLeave={() => setIsHovering(false)}
+          onClick={() => fileInputRef.current?.click()}
+          style={{
+            border: `1px dashed ${zoneActive ? 'var(--accent-gold)' : 'var(--border-default)'}`,
+            borderRadius: 3,
+            padding: 32,
+            textAlign: 'center',
+            background: zoneActive ? 'rgba(212,175,55,0.06)' : 'var(--bg-surface)',
+            cursor: 'pointer',
+            transition: 'border-color 150ms, background 150ms',
+          }}
+        >
+          <svg
+            width="24" height="24" viewBox="0 0 24 24" fill="none"
+            stroke="var(--text-muted)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
+            style={{ marginBottom: 10, display: 'block', margin: '0 auto 10px' }}
+          >
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+            <polyline points="14 2 14 8 20 8" />
+            <line x1="16" y1="13" x2="8" y2="13" />
+            <line x1="16" y1="17" x2="8" y2="17" />
+            <line x1="10" y1="9" x2="8" y2="9" />
+          </svg>
+          <div
+            style={{
+              fontFamily: "'IBM Plex Sans', sans-serif",
+              fontSize: 14,
+              color: 'var(--text-secondary)',
+              marginBottom: 6,
+            }}
+          >
+            Upload Invoice PDF
+          </div>
+          <div className="mono" style={{ fontSize: 11, color: 'var(--text-muted)', letterSpacing: '0.04em' }}>
+            Drag and drop or click to browse
+          </div>
+        </div>
+      ) : (
+        /* ── File card ── */
+        <div
+          style={{
+            background: 'var(--bg-elevated)',
+            border: '1px solid var(--border-default)',
+            borderLeft: '3px solid var(--accent-gold)',
+            borderRadius: 2,
+            padding: '12px 16px',
+          }}
+        >
+          {/* Top row: icon · filename · remove */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <svg
+              width="16" height="16" viewBox="0 0 24 24" fill="none"
+              stroke="var(--accent-gold)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
+              style={{ flexShrink: 0 }}
+            >
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+              <polyline points="14 2 14 8 20 8" />
+            </svg>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div
+                className="mono"
+                style={{
+                  fontSize: 13,
+                  color: 'var(--text-primary)',
+                  letterSpacing: '0.02em',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {displayName ?? 'invoice.pdf'}
+              </div>
+              {pdfFile && (
+                <div className="mono" style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2, letterSpacing: '0.04em' }}>
+                  {formatSize(pdfFile.size)}
+                </div>
+              )}
+            </div>
+            <button
+              onClick={handleRemove}
+              style={{
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                color: 'var(--text-muted)',
+                fontSize: 20,
+                lineHeight: 1,
+                padding: '0 4px',
+                flexShrink: 0,
+                fontFamily: 'sans-serif',
+              }}
+              title="Remove file"
+            >
+              ×
+            </button>
+          </div>
+
+          {/* Hash status row */}
+          <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--border-subtle)' }}>
+            {hashState === 'hashing' && (
+              <span
+                className="mono"
+                style={{ fontSize: 11, color: 'var(--text-muted)', display: 'inline-flex', alignItems: 'center' }}
+              >
+                <SpinArc />
+                Computing document hash…
+              </span>
+            )}
+            {hashState === 'done' && currentHash && (
+              <div>
+                <span
+                  className="mono"
+                  style={{
+                    fontSize: 11,
+                    color: 'var(--accent-gold)',
+                    border: '1px solid var(--accent-gold)',
+                    padding: '2px 8px',
+                    borderRadius: 2,
+                    letterSpacing: '0.06em',
+                  }}
+                >
+                  DOCUMENT HASH COMPUTED
+                </span>
+                <div
+                  className="mono"
+                  style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 8, letterSpacing: '0.04em' }}
+                >
+                  {currentHash.slice(0, 16)}…{currentHash.slice(-8)}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── Main Page ─────────────────────────────────────────────────────
 export default function UploadPage() {
   const ctx = useInvoice()
@@ -341,6 +588,16 @@ export default function UploadPage() {
   const scoreRef = useRef<HTMLDivElement>(null)
 
   const riskColor = score !== null ? getRiskColor(riskLevel || 'HIGH') : 'var(--text-muted)'
+
+  // PDF hash handlers
+  const handlePdfHashed = (hash: string, name: string) => {
+    ctx.setDocumentHash(hash)
+    ctx.setDocumentName(name)
+  }
+  const handlePdfRemoved = () => {
+    ctx.setDocumentHash(null)
+    ctx.setDocumentName(null)
+  }
 
   // Auto-fill client name when GST verifies
   const handleGstVerified = (data: GstData) => {
@@ -409,6 +666,13 @@ export default function UploadPage() {
         ? BigInt(Math.floor(new Date(dueDate).getTime() / 1000))
         : 2_000_000_000n
 
+      // Embed document hash in payment note (stored immutably on-chain)
+      const txnNote = new TextEncoder().encode(JSON.stringify({
+        document_hash: ctx.documentHash ?? 'not_provided',
+        document_name: ctx.documentName ?? null,
+        document_verified: ctx.documentHash !== null,
+      }))
+
       let iccAssetId: bigint
       let assetId: bigint
       let txnId: string
@@ -423,6 +687,7 @@ export default function UploadPage() {
             sender: activeAddress,
             receiver: appAddress,
             amount: microAlgos(400_000),
+            note: txnNote,
           })
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           .addAppCallMethodCall(await appClient.params.setupIcc({ args: [], extraFee: microAlgos(1000) }) as any)
@@ -449,6 +714,7 @@ export default function UploadPage() {
             sender: activeAddress,
             receiver: appAddress,
             amount: microAlgos(200_000),
+            note: txnNote,
           })
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           .addAppCallMethodCall(await appClient.params.createInvoice({
@@ -480,7 +746,8 @@ export default function UploadPage() {
 
       enqueueSnackbar(`NFT minted. Asset ID: ${assetId}`, { variant: 'success' })
     } catch (err: unknown) {
-      enqueueSnackbar(`Mint failed: ${err instanceof Error ? err.message : String(err)}`, { variant: 'error' })
+      const msg = parseError(err)
+      if (msg) enqueueSnackbar(msg, { variant: 'error', autoHideDuration: 5000 })
     } finally {
       setMinting(false)
     }
@@ -490,6 +757,14 @@ export default function UploadPage() {
     <div style={{ maxWidth: 560, margin: '0 auto' }}>
       {/* Gold accent rule */}
       <div style={{ height: 3, background: 'var(--accent-gold)', marginBottom: 28 }} />
+
+      {/* ── PDF document upload ── */}
+      <PdfSection
+        onHashed={handlePdfHashed}
+        onRemoved={handlePdfRemoved}
+        initialHash={ctx.documentHash}
+        initialName={ctx.documentName}
+      />
 
       {/* ── GSTIN verification ── */}
       <GstSection
@@ -636,6 +911,25 @@ export default function UploadPage() {
                   }}
                 >
                   GST VERIFIED · {ctx.gstData.state} · {ctx.gstData.taxpayer_type} Taxpayer · Since {ctx.gstData.registration_date.slice(-4)}
+                </div>
+              )}
+
+              {/* Document hash badge — shown if PDF was uploaded */}
+              {ctx.documentHash && (
+                <div
+                  style={{
+                    marginTop: ctx.gstVerified ? 8 : 16,
+                    paddingTop: ctx.gstVerified ? 0 : 12,
+                    borderTop: ctx.gstVerified ? 'none' : '1px solid var(--border-subtle)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                  }}
+                >
+                  <span style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--status-low)', display: 'inline-block', flexShrink: 0 }} />
+                  <span className="mono" style={{ fontSize: 11, color: 'var(--status-low)', letterSpacing: '0.06em' }}>
+                    DOCUMENT · PDF Verified · SHA-256
+                  </span>
                 </div>
               )}
 

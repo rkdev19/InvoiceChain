@@ -9,6 +9,7 @@ import { getRiskColor } from '../lib/trustScore'
 import { loraBase } from '../utils/lora'
 import { getAlgodConfigFromViteEnvironment, getIndexerConfigFromViteEnvironment } from '../utils/network/getAlgoClientConfigs'
 import { InvoiceClient } from '../contracts/Invoice'
+import { parseError } from '../utils/parseError'
 
 // ── Arc gauge ────────────────────────────────────────────────────
 const R = 36
@@ -134,6 +135,26 @@ export default function DashboardPage() {
     ? Math.min(100, Math.round((Number(ctx.borrowedAmount) / ctx.borrowLimit) * 100))
     : 0
 
+  // Countdown calculation
+  const dueMs = ctx.dueDate ? new Date(ctx.dueDate).getTime() : 0
+  const daysRemaining = dueMs > 0 ? Math.ceil((dueMs - Date.now()) / 86400000) : null
+  const countdownColor =
+    daysRemaining === null   ? 'var(--text-muted)' :
+    daysRemaining <= 0       ? 'var(--status-high)' :
+    daysRemaining < 3        ? 'var(--status-high)' :
+    daysRemaining <= 7       ? 'var(--status-medium)' :
+    'var(--status-low)'
+  const countdownLabel =
+    daysRemaining === null   ? '—' :
+    daysRemaining <= 0       ? 'OVERDUE' :
+    daysRemaining < 3        ? `${daysRemaining} days — REPAYMENT URGENT` :
+    daysRemaining <= 7       ? `${daysRemaining} days — DUE SOON` :
+    `${daysRemaining} days until due`
+  const countdownNum =
+    daysRemaining === null   ? '—' :
+    daysRemaining <= 0       ? '0' :
+    String(daysRemaining)
+
   const refreshState = async () => {
     if (!ctx.appClient) return
     setRefreshing(true)
@@ -193,7 +214,8 @@ export default function DashboardPage() {
       enqueueSnackbar('Loan repaid successfully!', { variant: 'success' })
       void refreshState()
     } catch (err: unknown) {
-      enqueueSnackbar(`Repay failed: ${err instanceof Error ? err.message : String(err)}`, { variant: 'error' })
+      const msg = parseError(err)
+      if (msg) enqueueSnackbar(msg, { variant: 'error', autoHideDuration: 5000 })
     } finally {
       setRepaying(false)
     }
@@ -290,6 +312,69 @@ export default function DashboardPage() {
         />
       </div>
 
+      {/* ── Loan countdown ── */}
+      {ctx.isBorrowed && ctx.dueDate && (
+        <motion.div
+          initial={{ opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.14 }}
+          style={{
+            border: '1px solid var(--border-default)',
+            borderLeft: `3px solid ${countdownColor}`,
+            background: 'var(--bg-surface)',
+            padding: '16px 20px',
+            marginBottom: 20,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 16,
+          }}
+        >
+          <div>
+            <div className="label-caps" style={{ marginBottom: 8 }}>Repayment Countdown</div>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 12 }}>
+              <motion.div
+                className="mono"
+                style={{
+                  fontSize: 32,
+                  fontWeight: 600,
+                  color: countdownColor,
+                  lineHeight: 1,
+                  letterSpacing: '-0.02em',
+                }}
+                animate={daysRemaining !== null && daysRemaining < 3 ? { opacity: [1, 0.45, 1] } : {}}
+                transition={{ duration: 1.5, repeat: Infinity, ease: 'easeInOut' }}
+              >
+                {countdownNum}
+              </motion.div>
+              <div>
+                <div className="mono" style={{ fontSize: 12, color: countdownColor, letterSpacing: '0.06em' }}>
+                  {countdownLabel}
+                </div>
+                <div className="mono" style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 3, letterSpacing: '0.04em' }}>
+                  Due {ctx.dueDate}
+                </div>
+              </div>
+            </div>
+          </div>
+          <button
+            onClick={() => navigate('/app/repay')}
+            className="btn-primary"
+            style={{
+              border: `1px solid ${countdownColor}`,
+              color: countdownColor,
+              background: 'transparent',
+              fontSize: 12,
+              padding: '8px 16px',
+              whiteSpace: 'nowrap',
+              flexShrink: 0,
+            }}
+          >
+            Repay Now →
+          </button>
+        </motion.div>
+      )}
+
       {/* ── Refresh ── */}
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 18 }}>
         <button
@@ -380,7 +465,7 @@ export default function DashboardPage() {
                 {/* GST verified row */}
                 {ctx.gstVerified && ctx.gstData && (
                   <tr>
-                    <td colSpan={7} style={{ paddingTop: 8, paddingBottom: 8 }}>
+                    <td colSpan={7} style={{ paddingTop: 8, paddingBottom: 4 }}>
                       <span
                         className="mono"
                         style={{
@@ -390,6 +475,25 @@ export default function DashboardPage() {
                         }}
                       >
                         GST VERIFIED · {ctx.gstData.state} · {ctx.gstData.taxpayer_type} Taxpayer · Since {ctx.gstData.registration_date.slice(-4)}
+                      </span>
+                    </td>
+                  </tr>
+                )}
+                {/* Document hash row */}
+                {ctx.documentHash && (
+                  <tr>
+                    <td colSpan={7} style={{ paddingTop: 4, paddingBottom: 8 }}>
+                      <span
+                        className="mono"
+                        style={{
+                          fontSize: 11,
+                          color: 'var(--text-muted)',
+                          letterSpacing: '0.04em',
+                          cursor: 'help',
+                        }}
+                        title={`Full hash: ${ctx.documentHash}\nStored immutably in NFT metadata on Algorand`}
+                      >
+                        DOC HASH · {ctx.documentHash.slice(0, 8)}…{ctx.documentHash.slice(-8)}
                       </span>
                     </td>
                   </tr>

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useWallet } from '@txnlab/use-wallet-react'
 import { AlgorandClient, microAlgos } from '@algorandfoundation/algokit-utils'
@@ -8,6 +8,7 @@ import { useInvoice } from '../context/InvoiceContext'
 import { getRiskColor } from '../lib/trustScore'
 import { getAlgodConfigFromViteEnvironment, getIndexerConfigFromViteEnvironment } from '../utils/network/getAlgoClientConfigs'
 import { loraBase } from '../utils/lora'
+import { parseError } from '../utils/parseError'
 
 export default function BorrowPage() {
   const ctx = useInvoice()
@@ -20,6 +21,46 @@ export default function BorrowPage() {
   const [sliderVal, setSliderVal] = useState(Math.max(1, Math.floor(max / 2)))
   const [loading, setLoading] = useState(false)
   const [successTxn, setSuccessTxn] = useState<string | null>(null)
+  const [iccOptedIn, setIccOptedIn] = useState<boolean | null>(null)
+  const [optingIn, setOptingIn] = useState(false)
+
+  // Check if wallet is opted into ICC token
+  useEffect(() => {
+    if (!activeAddress || !ctx.iccAssetId) { setIccOptedIn(null); return }
+    const algodConfig = getAlgodConfigFromViteEnvironment()
+    const indexerConfig = getIndexerConfigFromViteEnvironment()
+    const algorand = AlgorandClient.fromConfig({ algodConfig, indexerConfig })
+    algorand.account.getInformation(activeAddress)
+      .then(acctInfo => {
+        type AssetEntry = { assetId?: bigint | number; 'asset-id'?: bigint | number }
+        const assets = acctInfo.assets as AssetEntry[] | undefined
+        const isOptedIn = assets?.some(a => {
+          const id = a.assetId ?? a['asset-id']
+          return id !== undefined && BigInt(id) === ctx.iccAssetId
+        }) ?? false
+        setIccOptedIn(isOptedIn)
+      })
+      .catch(() => setIccOptedIn(null))
+  }, [activeAddress, ctx.iccAssetId])
+
+  const handleIccOptIn = async () => {
+    if (!activeAddress || !ctx.iccAssetId) return
+    setOptingIn(true)
+    try {
+      const algodConfig = getAlgodConfigFromViteEnvironment()
+      const indexerConfig = getIndexerConfigFromViteEnvironment()
+      const algorand = AlgorandClient.fromConfig({ algodConfig, indexerConfig })
+      algorand.setDefaultSigner(transactionSigner)
+      await algorand.send.assetOptIn({ sender: activeAddress, assetId: ctx.iccAssetId })
+      setIccOptedIn(true)
+      enqueueSnackbar('Opted into ICC token', { variant: 'success' })
+    } catch (err: unknown) {
+      const msg = parseError(err)
+      if (msg) enqueueSnackbar(msg, { variant: 'error' })
+    } finally {
+      setOptingIn(false)
+    }
+  }
 
   const pct = max > 0 ? Math.round((sliderVal / max) * 100) : 0
   const riskColor = getRiskColor(ctx.riskLevel || 'HIGH')
@@ -72,7 +113,8 @@ export default function BorrowPage() {
       setSuccessTxn(txnId)
       enqueueSnackbar(`Borrowed ${sliderVal.toLocaleString()} ICC successfully!`, { variant: 'success' })
     } catch (err: unknown) {
-      enqueueSnackbar(`Borrow failed: ${err instanceof Error ? err.message : String(err)}`, { variant: 'error' })
+      const msg = parseError(err)
+      if (msg) enqueueSnackbar(msg, { variant: 'error', autoHideDuration: 5000 })
     } finally {
       setLoading(false)
     }
@@ -241,6 +283,56 @@ export default function BorrowPage() {
           </a>
         </motion.div>
       )}
+
+      {/* ── ICC opt-in notice ── */}
+      <AnimatePresence>
+        {ctx.iccAssetId !== null && iccOptedIn === false && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.25 }}
+            style={{ overflow: 'hidden', marginBottom: 2 }}
+          >
+            <div
+              style={{
+                border: '1px solid var(--border-default)',
+                borderLeft: '3px solid var(--accent-gold)',
+                background: 'var(--bg-surface)',
+                padding: '14px 18px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: 16,
+              }}
+            >
+              <div>
+                <div className="label-caps" style={{ marginBottom: 4, color: 'var(--accent-gold)' }}>
+                  ICC Opt-In Required
+                </div>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.5, fontFamily: "'IBM Plex Sans', sans-serif" }}>
+                  Opt in to the ICC token to receive borrowed funds in your wallet.
+                </div>
+              </div>
+              <button
+                onClick={handleIccOptIn}
+                disabled={optingIn}
+                className="btn-secondary"
+                style={{
+                  whiteSpace: 'nowrap',
+                  flexShrink: 0,
+                  borderColor: 'var(--accent-gold)',
+                  color: 'var(--accent-gold)',
+                  fontSize: 11,
+                  padding: '6px 14px',
+                }}
+              >
+                {optingIn ? 'Opting In…' : 'Opt In to ICC'}
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* ── Borrow card ── */}
       <motion.div

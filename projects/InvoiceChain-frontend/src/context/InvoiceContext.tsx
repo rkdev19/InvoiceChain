@@ -36,6 +36,8 @@ interface PersistedState {
   invoiceStatus: string
   gstVerified: boolean
   gstData: GstData | null
+  documentHash: string | null
+  documentName: string | null
 }
 
 function loadPersistedState(): Partial<PersistedState> {
@@ -78,6 +80,9 @@ interface InvoiceState extends PersistedState {
   setGstVerified: (v: boolean) => void
   setGstData: (v: GstData | null) => void
 
+  setDocumentHash: (v: string | null) => void
+  setDocumentName: (v: string | null) => void
+
   appClient: InvoiceClient | null
   setAppClient: (v: InvoiceClient | null) => void
 }
@@ -106,6 +111,8 @@ export const InvoiceProvider = ({ children }: { children: ReactNode }) => {
   const [invoiceStatus, setInvoiceStatus] = useState(saved.invoiceStatus ?? 'ACTIVE')
   const [gstVerified, setGstVerified] = useState(saved.gstVerified ?? false)
   const [gstData, setGstData]         = useState<GstData | null>(saved.gstData ?? null)
+  const [documentHash, setDocumentHash] = useState<string | null>(saved.documentHash ?? null)
+  const [documentName, setDocumentName] = useState<string | null>(saved.documentName ?? null)
   const [appClient, setAppClient]     = useState<InvoiceClient | null>(null) // reconstructed at runtime
 
   // Sync persisted fields to localStorage whenever they change
@@ -117,6 +124,7 @@ export const InvoiceProvider = ({ children }: { children: ReactNode }) => {
       isBorrowed, borrowedAmount,
       iccAssetId, collateralLocked, invoiceStatus,
       gstVerified, gstData,
+      documentHash, documentName,
     }
     try {
       localStorage.setItem(STORAGE_KEY, serialize(state))
@@ -128,6 +136,7 @@ export const InvoiceProvider = ({ children }: { children: ReactNode }) => {
     isBorrowed, borrowedAmount,
     iccAssetId, collateralLocked, invoiceStatus,
     gstVerified, gstData,
+    documentHash, documentName,
   ])
 
   return (
@@ -152,6 +161,8 @@ export const InvoiceProvider = ({ children }: { children: ReactNode }) => {
         invoiceStatus, setInvoiceStatus,
         gstVerified, setGstVerified,
         gstData, setGstData,
+        documentHash, setDocumentHash,
+        documentName, setDocumentName,
         appClient, setAppClient,
       }}
     >
