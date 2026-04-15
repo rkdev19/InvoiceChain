@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, ReactNode } from 'react'
 import { InvoiceClient } from '../contracts/Invoice'
+import type { GstData } from '../utils/verifyGstin'
 
 interface InvoiceState {
   step: number
@@ -35,13 +36,19 @@ interface InvoiceState {
   poolBalance: bigint
   setPoolBalance: (v: bigint) => void
 
-  // New fields — ICC token + collateral state
+  // ICC token + collateral state
   iccAssetId: bigint | null
   setIccAssetId: (v: bigint | null) => void
   collateralLocked: boolean
   setCollateralLocked: (v: boolean) => void
   invoiceStatus: string
   setInvoiceStatus: (v: string) => void
+
+  // GST verification
+  gstVerified: boolean
+  setGstVerified: (v: boolean) => void
+  gstData: GstData | null
+  setGstData: (v: GstData | null) => void
 
   appClient: InvoiceClient | null
   setAppClient: (v: InvoiceClient | null) => void
@@ -67,6 +74,8 @@ export const InvoiceProvider = ({ children }: { children: ReactNode }) => {
   const [iccAssetId, setIccAssetId] = useState<bigint | null>(null)
   const [collateralLocked, setCollateralLocked] = useState(false)
   const [invoiceStatus, setInvoiceStatus] = useState('ACTIVE')
+  const [gstVerified, setGstVerified] = useState(false)
+  const [gstData, setGstData] = useState<GstData | null>(null)
   const [appClient, setAppClient] = useState<InvoiceClient | null>(null)
 
   return (
@@ -89,6 +98,8 @@ export const InvoiceProvider = ({ children }: { children: ReactNode }) => {
         iccAssetId, setIccAssetId,
         collateralLocked, setCollateralLocked,
         invoiceStatus, setInvoiceStatus,
+        gstVerified, setGstVerified,
+        gstData, setGstData,
         appClient, setAppClient,
       }}
     >

@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useWallet } from '@txnlab/use-wallet-react'
 import { AlgorandClient, microAlgos } from '@algorandfoundation/algokit-utils'
@@ -9,6 +9,8 @@ import { calculateTrustScore, getBorrowLimit, getMockSMEData, getRiskColor, getR
 import { getAlgodConfigFromViteEnvironment, getIndexerConfigFromViteEnvironment } from '../utils/network/getAlgoClientConfigs'
 import { InvoiceFactory } from '../contracts/Invoice'
 import { loraBase } from '../utils/lora'
+import { verifyGstin } from '../utils/verifyGstin'
+import type { GstData } from '../utils/verifyGstin'
 
 // ── Arc gauge ────────────────────────────────────────────────────
 const R = 48
@@ -60,6 +62,264 @@ const LABEL: React.CSSProperties = {
   marginBottom: 6,
 }
 
+// ── Spinning arc loader ───────────────────────────────────────────
+function SpinArc() {
+  return (
+    <motion.svg
+      width="16" height="16" viewBox="0 0 16 16"
+      animate={{ rotate: 360 }}
+      transition={{ duration: 1, ease: 'linear', repeat: Infinity }}
+      style={{ display: 'inline-block', verticalAlign: 'middle', marginRight: 6 }}
+    >
+      <circle cx="8" cy="8" r="6" fill="none" stroke="var(--border-default)" strokeWidth="2" />
+      <circle
+        cx="8" cy="8" r="6"
+        fill="none"
+        stroke="var(--accent-gold)"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeDasharray="12 26"
+        strokeDashoffset="0"
+      />
+    </motion.svg>
+  )
+}
+
+// ── GST verified pill ─────────────────────────────────────────────
+function GstPill({ ok }: { ok: boolean }) {
+  const color = ok ? 'var(--status-low)' : 'var(--status-high)'
+  const label = ok ? 'GST VERIFIED' : 'INVALID GSTIN'
+  return (
+    <span
+      className="mono"
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 5,
+        fontSize: 11,
+        color,
+        border: `1px solid ${color}`,
+        padding: '2px 8px',
+        borderRadius: 2,
+        letterSpacing: '0.06em',
+      }}
+    >
+      <span style={{ width: 6, height: 6, borderRadius: '50%', background: color, display: 'inline-block' }} />
+      {label}
+    </span>
+  )
+}
+
+// ── GST section ───────────────────────────────────────────────────
+function GstSection({
+  onVerified,
+  initialData,
+}: {
+  onVerified: (data: GstData) => void
+  initialData: GstData | null
+}) {
+  const [gstin, setGstin] = useState(initialData?.gstin ?? '')
+  const [state, setState] = useState<'idle' | 'verifying' | 'success' | 'error'>(
+    initialData ? 'success' : 'idle'
+  )
+  const [result, setResult] = useState<GstData | null>(initialData)
+  const [errorMsg, setErrorMsg] = useState('')
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  // GSTIN format: 15 chars, regex
+  const REGEX = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/
+  const upper = gstin.trim().toUpperCase()
+  const len = upper.length
+  const isFormatValid = REGEX.test(upper)
+  const hasInvalidChars = len > 0 && len < 15 && !/^[0-9A-Z]*$/.test(upper)
+
+  const borderColor =
+    state === 'success' ? 'var(--status-low)' :
+    state === 'error' || hasInvalidChars ? 'var(--status-high)' :
+    isFormatValid ? 'var(--accent-gold)' :
+    'var(--border-default)'
+
+  const runVerify = async (value: string) => {
+    setState('verifying')
+    try {
+      const res = await verifyGstin(value)
+      if (res.valid) {
+        setState('success')
+        setResult(res)
+        setErrorMsg('')
+        onVerified(res)
+      } else {
+        setState('error')
+        setErrorMsg(res.error)
+        setGstin('')
+        setTimeout(() => inputRef.current?.focus(), 50)
+      }
+    } catch {
+      setState('error')
+      setErrorMsg('Verification failed. Try again.')
+    }
+  }
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const raw = e.target.value.toUpperCase().replace(/[^0-9A-Z]/g, '')
+    if (raw.length > 15) return
+    setGstin(raw)
+    if (state === 'error') setState('idle')
+
+    // Auto-trigger at exactly 15 valid chars
+    if (raw.length === 15 && REGEX.test(raw)) {
+      runVerify(raw)
+    }
+  }
+
+  return (
+    <div style={{ marginBottom: 28 }}>
+      {/* Section header */}
+      <div
+        className="mono"
+        style={{
+          fontSize: 11,
+          color: 'var(--text-muted)',
+          letterSpacing: '0.12em',
+          textTransform: 'uppercase',
+          marginBottom: 16,
+          paddingBottom: 10,
+          borderBottom: '1px solid var(--border-subtle)',
+        }}
+      >
+        Business Verification
+      </div>
+
+      {/* GSTIN input */}
+      <div style={{ marginBottom: 4 }}>
+        <label style={LABEL}>GST Identification Number</label>
+        <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 10 }}>
+          <input
+            ref={inputRef}
+            type="text"
+            placeholder="27AAAAA0000A1Z5"
+            value={gstin}
+            onChange={handleChange}
+            disabled={state === 'verifying' || state === 'success'}
+            maxLength={15}
+            style={{
+              background: 'var(--bg-surface)',
+              border: `1px solid ${borderColor}`,
+              borderRadius: 2,
+              color: 'var(--text-primary)',
+              fontFamily: "'IBM Plex Mono', monospace",
+              fontSize: 13,
+              padding: '8px 12px',
+              width: '100%',
+              outline: 'none',
+              transition: 'border-color 120ms',
+              letterSpacing: '0.06em',
+            }}
+          />
+          {/* State indicator alongside input */}
+          <div style={{ flexShrink: 0, minWidth: 120, display: 'flex', alignItems: 'center' }}>
+            {state === 'verifying' && (
+              <span
+                style={{
+                  fontFamily: "'IBM Plex Sans', sans-serif",
+                  fontSize: 13,
+                  color: 'var(--text-secondary)',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                }}
+              >
+                <SpinArc />
+                Verifying…
+              </span>
+            )}
+            {state === 'success' && <GstPill ok={true} />}
+            {state === 'error' && <GstPill ok={false} />}
+            {(state === 'idle') && len > 0 && len < 15 && (
+              <span className="mono" style={{ fontSize: 11, color: 'var(--text-muted)', letterSpacing: '0.06em' }}>
+                {len}/15
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Hint / error line */}
+        <div style={{ marginTop: 4 }}>
+          {state === 'error' ? (
+            <span style={{ fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 12, color: 'var(--text-muted)' }}>
+              {errorMsg} · Check format and try again
+            </span>
+          ) : (
+            <span className="mono" style={{ fontSize: 11, color: 'var(--text-muted)', letterSpacing: '0.04em' }}>
+              Format: 2 digits + 10 char PAN + 3 alphanumeric · 15 chars total
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* Business details card — slides in on success */}
+      <AnimatePresence>
+        {state === 'success' && result && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.3, ease: 'easeOut' }}
+            style={{ overflow: 'hidden', marginTop: 12 }}
+          >
+            <div
+              style={{
+                background: 'var(--bg-elevated)',
+                border: '1px solid var(--border-default)',
+                borderLeft: '3px solid var(--status-low)',
+                borderRadius: 3,
+                padding: '16px 20px',
+              }}
+            >
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: '1fr 1fr',
+                  gap: '10px 24px',
+                }}
+              >
+                {[
+                  { label: 'Business Name', value: result.business_name },
+                  { label: 'State', value: result.state },
+                  { label: 'Registered', value: `Since ${result.registration_date.slice(-4)}` },
+                  { label: 'Taxpayer Type', value: result.taxpayer_type },
+                  { label: 'Turnover', value: result.annual_turnover },
+                  { label: 'Status', value: result.status, accent: 'var(--status-low)' },
+                ].map(({ label, value, accent }) => (
+                  <div key={label}>
+                    <div
+                      style={{
+                        fontFamily: "'IBM Plex Sans', sans-serif",
+                        fontSize: 10,
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.10em',
+                        color: 'var(--text-muted)',
+                        marginBottom: 3,
+                      }}
+                    >
+                      {label}
+                    </div>
+                    <div
+                      className="mono"
+                      style={{ fontSize: 13, color: accent ?? 'var(--text-primary)', letterSpacing: '0.02em' }}
+                    >
+                      {value}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  )
+}
+
 // ── Main Page ─────────────────────────────────────────────────────
 export default function UploadPage() {
   const ctx = useInvoice()
@@ -81,6 +341,24 @@ export default function UploadPage() {
   const scoreRef = useRef<HTMLDivElement>(null)
 
   const riskColor = score !== null ? getRiskColor(riskLevel || 'HIGH') : 'var(--text-muted)'
+
+  // Auto-fill client name when GST verifies
+  const handleGstVerified = (data: GstData) => {
+    ctx.setGstVerified(true)
+    ctx.setGstData(data)
+    // Auto-fill client/business name from verified data
+    if (!client) {
+      setClient(data.business_name)
+    }
+  }
+
+  // Keep client field in sync if it was auto-filled but user hasn't touched it
+  useEffect(() => {
+    if (ctx.gstData && !client) {
+      setClient(ctx.gstData.business_name)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ctx.gstData])
 
   const handleScore = (e: React.FormEvent) => {
     e.preventDefault()
@@ -131,9 +409,6 @@ export default function UploadPage() {
         : 2_000_000_000n
 
       // ── Signature 2: Fund + setup_icc + create_invoice (one atomic group) ──
-      // Payment covers MBR for 2 ASAs (0.1 ALGO each) + base account (0.1 ALGO).
-      // extraFee on each app call covers the inner transaction fee from the caller side.
-      // seed_pool is not needed: inner txn fees are paid via extraFee, not the contract's balance.
       const groupResult = await algorand
         .newGroup()
         .addPayment({
@@ -154,7 +429,6 @@ export default function UploadPage() {
         }) as any)
         .execute()
 
-      // returns[] contains ABI return values in method-call order (non-ABI txns like payment are excluded)
       const iccAssetId = groupResult.returns?.[0]?.returnValue as bigint
       const assetId = groupResult.returns?.[1]?.returnValue as bigint
       const txnId = groupResult.txIds[groupResult.txIds.length - 1]
@@ -180,6 +454,12 @@ export default function UploadPage() {
     <div style={{ maxWidth: 560, margin: '0 auto' }}>
       {/* Gold accent rule */}
       <div style={{ height: 3, background: 'var(--accent-gold)', marginBottom: 28 }} />
+
+      {/* ── GSTIN verification ── */}
+      <GstSection
+        onVerified={handleGstVerified}
+        initialData={ctx.gstData}
+      />
 
       {/* ── Invoice form ── */}
       <form onSubmit={handleScore} style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
@@ -305,6 +585,23 @@ export default function UploadPage() {
                   </div>
                 </div>
               </div>
+
+              {/* GST badge — shown if verified */}
+              {ctx.gstVerified && ctx.gstData && (
+                <div
+                  className="mono"
+                  style={{
+                    marginTop: 16,
+                    paddingTop: 12,
+                    borderTop: '1px solid var(--border-subtle)',
+                    fontSize: 11,
+                    color: 'var(--status-low)',
+                    letterSpacing: '0.06em',
+                  }}
+                >
+                  GST VERIFIED · {ctx.gstData.state} · {ctx.gstData.taxpayer_type} Taxpayer · Since {ctx.gstData.registration_date.slice(-4)}
+                </div>
+              )}
 
               {/* Mint section */}
               <div style={{ marginTop: 24, borderTop: '1px solid var(--border-default)', paddingTop: 20 }}>

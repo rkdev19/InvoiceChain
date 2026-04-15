@@ -5,6 +5,7 @@ import { useWallet } from '@txnlab/use-wallet-react'
 import { AlgorandClient } from '@algorandfoundation/algokit-utils'
 import { getAlgodConfigFromViteEnvironment, getIndexerConfigFromViteEnvironment } from '../utils/network/getAlgoClientConfigs'
 import { useInvoice } from '../context/InvoiceContext'
+import WalletGate from '../components/WalletGate'
 
 // ── Minimal 14×14 SVG icons ──────────────────────────────────────
 const Icons = {
@@ -216,7 +217,24 @@ function Sidebar() {
                 </span>
               </div>
             )}
-            {iccBalance === null && <div style={{ marginBottom: 10 }} />}
+            {iccBalance === null && <div style={{ marginBottom: 6 }} />}
+
+            {/* GST verification status */}
+            {ctx.gstVerified && ctx.gstData ? (
+              <div
+                className="mono"
+                style={{ fontSize: 10, color: 'var(--status-low)', letterSpacing: '0.06em', marginBottom: 10 }}
+              >
+                GST ✓ {ctx.gstData.state.split(' ')[0]}
+              </div>
+            ) : (
+              <div
+                className="mono"
+                style={{ fontSize: 10, color: 'var(--text-muted)', letterSpacing: '0.06em', marginBottom: 10 }}
+              >
+                GST Unverified
+              </div>
+            )}
 
             <button
               onClick={handleDisconnect}
@@ -337,14 +355,16 @@ export default function AppLayout() {
 
         {/* Content */}
         <main style={{ flex: 1, overflowY: 'auto', padding: '28px 32px' }}>
-          <motion.div
-            key={pathname}
-            initial={{ opacity: 0, y: 6 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.18, ease: 'easeOut' }}
-          >
-            <Outlet />
-          </motion.div>
+          <WalletGate>
+            <motion.div
+              key={pathname}
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.18, ease: 'easeOut' }}
+            >
+              <Outlet />
+            </motion.div>
+          </WalletGate>
         </main>
       </div>
     </div>

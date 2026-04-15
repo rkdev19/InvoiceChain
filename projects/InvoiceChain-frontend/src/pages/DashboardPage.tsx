@@ -327,6 +327,7 @@ export default function DashboardPage() {
             </thead>
             <tbody>
               {invoiceRow ? (
+                <>
                 <tr>
                   <td>
                     <a
@@ -376,6 +377,24 @@ export default function DashboardPage() {
                     )}
                   </td>
                 </tr>
+                {/* GST verified row */}
+                {ctx.gstVerified && ctx.gstData && (
+                  <tr>
+                    <td colSpan={7} style={{ paddingTop: 8, paddingBottom: 8 }}>
+                      <span
+                        className="mono"
+                        style={{
+                          fontSize: 11,
+                          color: 'var(--status-low)',
+                          letterSpacing: '0.06em',
+                        }}
+                      >
+                        GST VERIFIED · {ctx.gstData.state} · {ctx.gstData.taxpayer_type} Taxpayer · Since {ctx.gstData.registration_date.slice(-4)}
+                      </span>
+                    </td>
+                  </tr>
+                )}
+                </>
               ) : (
                 <tr>
                   <td
