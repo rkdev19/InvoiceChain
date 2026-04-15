@@ -31,5 +31,4 @@ SMEs lock invoices as NFT collateral to borrow ICC tokens instantly.
 - Liquidation on default
 - Multi-device state restore via Algorand indexer
 
-## Submission Password
-ALGOHackSeries3
+
