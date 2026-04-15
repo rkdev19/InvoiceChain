@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { useWallet } from '@txnlab/use-wallet-react'
@@ -6,6 +6,7 @@ import { AlgorandClient } from '@algorandfoundation/algokit-utils'
 import { getAlgodConfigFromViteEnvironment, getIndexerConfigFromViteEnvironment } from '../utils/network/getAlgoClientConfigs'
 import { useInvoice } from '../context/InvoiceContext'
 import WalletGate from '../components/WalletGate'
+import { InvoiceClient } from '../contracts/Invoice'
 
 // ── Minimal 14×14 SVG icons ──────────────────────────────────────
 const Icons = {
@@ -304,6 +305,25 @@ function Sidebar() {
 // ── Main Layout ───────────────────────────────────────────────────
 export default function AppLayout() {
   const { pathname } = useLocation()
+  const { activeAddress, transactionSigner } = useWallet()
+  const ctx = useInvoice()
+
+  // Keep signer in a ref so the effect below doesn't re-run on every sign
+  const signerRef = useRef(transactionSigner)
+  signerRef.current = transactionSigner
+
+  // Reconstruct appClient from persisted appId after a page refresh
+  useEffect(() => {
+    if (!ctx.appId || ctx.appClient || !activeAddress) return
+    const algodConfig = getAlgodConfigFromViteEnvironment()
+    const indexerConfig = getIndexerConfigFromViteEnvironment()
+    const algorand = AlgorandClient.fromConfig({ algodConfig, indexerConfig })
+    algorand.setDefaultSigner(signerRef.current)
+    ctx.setAppClient(
+      new InvoiceClient({ appId: ctx.appId, defaultSender: activeAddress, algorand })
+    )
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ctx.appId, ctx.appClient, activeAddress])
 
   return (
     <div style={{ display: 'flex', height: '100vh', background: 'var(--bg-base)' }}>

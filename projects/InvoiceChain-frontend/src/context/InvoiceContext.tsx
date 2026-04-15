@@ -1,53 +1,81 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react'
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react'
 import { InvoiceClient } from '../contracts/Invoice'
 import type { GstData } from '../utils/verifyGstin'
 
-interface InvoiceState {
+// ── Persistence helpers ───────────────────────────────────────────
+// JSON doesn't support BigInt — store as { __bigint: "123" } objects.
+const STORAGE_KEY = 'ic_state_v1'
+
+function serialize(v: unknown): string {
+  return JSON.stringify(v, (_, val) =>
+    typeof val === 'bigint' ? { __bigint: val.toString() } : val
+  )
+}
+
+function deserialize<T>(json: string): T {
+  return JSON.parse(json, (_, val) =>
+    val && typeof val === 'object' && '__bigint' in val ? BigInt(val.__bigint as string) : val
+  ) as T
+}
+
+interface PersistedState {
+  businessName: string
+  amount: number
+  dueDate: string
+  trustScore: number
+  riskLevel: string
+  borrowLimit: number
+  appId: bigint | null
+  appAddress: string | null
+  nftAssetId: bigint | null
+  mintTxnId: string | null
+  isBorrowed: boolean
+  borrowedAmount: bigint
+  iccAssetId: bigint | null
+  collateralLocked: boolean
+  invoiceStatus: string
+  gstVerified: boolean
+  gstData: GstData | null
+}
+
+function loadPersistedState(): Partial<PersistedState> {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY)
+    if (!raw) return {}
+    return deserialize<Partial<PersistedState>>(raw)
+  } catch {
+    return {}
+  }
+}
+
+// ── Context types ─────────────────────────────────────────────────
+interface InvoiceState extends PersistedState {
   step: number
   setStep: (step: number) => void
 
-  businessName: string
   setBusinessName: (v: string) => void
-  amount: number
   setAmount: (v: number) => void
-  dueDate: string
   setDueDate: (v: string) => void
 
-  trustScore: number
   setTrustScore: (v: number) => void
-  riskLevel: string
   setRiskLevel: (v: string) => void
-  borrowLimit: number
   setBorrowLimit: (v: number) => void
 
-  appId: bigint | null
   setAppId: (v: bigint | null) => void
-  appAddress: string | null
   setAppAddress: (v: string | null) => void
-  nftAssetId: bigint | null
   setNftAssetId: (v: bigint | null) => void
-  mintTxnId: string | null
   setMintTxnId: (v: string | null) => void
 
-  isBorrowed: boolean
   setIsBorrowed: (v: boolean) => void
-  borrowedAmount: bigint
   setBorrowedAmount: (v: bigint) => void
   poolBalance: bigint
   setPoolBalance: (v: bigint) => void
 
-  // ICC token + collateral state
-  iccAssetId: bigint | null
   setIccAssetId: (v: bigint | null) => void
-  collateralLocked: boolean
   setCollateralLocked: (v: boolean) => void
-  invoiceStatus: string
   setInvoiceStatus: (v: string) => void
 
-  // GST verification
-  gstVerified: boolean
   setGstVerified: (v: boolean) => void
-  gstData: GstData | null
   setGstData: (v: GstData | null) => void
 
   appClient: InvoiceClient | null
@@ -57,26 +85,50 @@ interface InvoiceState {
 const InvoiceContext = createContext<InvoiceState | null>(null)
 
 export const InvoiceProvider = ({ children }: { children: ReactNode }) => {
-  const [step, setStep] = useState(0)
-  const [businessName, setBusinessName] = useState('')
-  const [amount, setAmount] = useState(0)
-  const [dueDate, setDueDate] = useState('')
-  const [trustScore, setTrustScore] = useState(0)
-  const [riskLevel, setRiskLevel] = useState('')
-  const [borrowLimit, setBorrowLimit] = useState(0)
-  const [appId, setAppId] = useState<bigint | null>(null)
-  const [appAddress, setAppAddress] = useState<string | null>(null)
-  const [nftAssetId, setNftAssetId] = useState<bigint | null>(null)
-  const [mintTxnId, setMintTxnId] = useState<string | null>(null)
-  const [isBorrowed, setIsBorrowed] = useState(false)
-  const [borrowedAmount, setBorrowedAmount] = useState<bigint>(0n)
-  const [poolBalance, setPoolBalance] = useState<bigint>(0n)
-  const [iccAssetId, setIccAssetId] = useState<bigint | null>(null)
-  const [collateralLocked, setCollateralLocked] = useState(false)
-  const [invoiceStatus, setInvoiceStatus] = useState('ACTIVE')
-  const [gstVerified, setGstVerified] = useState(false)
-  const [gstData, setGstData] = useState<GstData | null>(null)
-  const [appClient, setAppClient] = useState<InvoiceClient | null>(null)
+  const saved = loadPersistedState()
+
+  const [step, setStep]               = useState(0)
+  const [businessName, setBusinessName] = useState(saved.businessName ?? '')
+  const [amount, setAmount]           = useState(saved.amount ?? 0)
+  const [dueDate, setDueDate]         = useState(saved.dueDate ?? '')
+  const [trustScore, setTrustScore]   = useState(saved.trustScore ?? 0)
+  const [riskLevel, setRiskLevel]     = useState(saved.riskLevel ?? '')
+  const [borrowLimit, setBorrowLimit] = useState(saved.borrowLimit ?? 0)
+  const [appId, setAppId]             = useState<bigint | null>(saved.appId ?? null)
+  const [appAddress, setAppAddress]   = useState<string | null>(saved.appAddress ?? null)
+  const [nftAssetId, setNftAssetId]   = useState<bigint | null>(saved.nftAssetId ?? null)
+  const [mintTxnId, setMintTxnId]     = useState<string | null>(saved.mintTxnId ?? null)
+  const [isBorrowed, setIsBorrowed]   = useState(saved.isBorrowed ?? false)
+  const [borrowedAmount, setBorrowedAmount] = useState<bigint>(saved.borrowedAmount ?? 0n)
+  const [poolBalance, setPoolBalance] = useState<bigint>(0n) // always fetch fresh
+  const [iccAssetId, setIccAssetId]   = useState<bigint | null>(saved.iccAssetId ?? null)
+  const [collateralLocked, setCollateralLocked] = useState(saved.collateralLocked ?? false)
+  const [invoiceStatus, setInvoiceStatus] = useState(saved.invoiceStatus ?? 'ACTIVE')
+  const [gstVerified, setGstVerified] = useState(saved.gstVerified ?? false)
+  const [gstData, setGstData]         = useState<GstData | null>(saved.gstData ?? null)
+  const [appClient, setAppClient]     = useState<InvoiceClient | null>(null) // reconstructed at runtime
+
+  // Sync persisted fields to localStorage whenever they change
+  useEffect(() => {
+    const state: PersistedState = {
+      businessName, amount, dueDate,
+      trustScore, riskLevel, borrowLimit,
+      appId, appAddress, nftAssetId, mintTxnId,
+      isBorrowed, borrowedAmount,
+      iccAssetId, collateralLocked, invoiceStatus,
+      gstVerified, gstData,
+    }
+    try {
+      localStorage.setItem(STORAGE_KEY, serialize(state))
+    } catch { /* storage quota — ignore */ }
+  }, [
+    businessName, amount, dueDate,
+    trustScore, riskLevel, borrowLimit,
+    appId, appAddress, nftAssetId, mintTxnId,
+    isBorrowed, borrowedAmount,
+    iccAssetId, collateralLocked, invoiceStatus,
+    gstVerified, gstData,
+  ])
 
   return (
     <InvoiceContext.Provider
