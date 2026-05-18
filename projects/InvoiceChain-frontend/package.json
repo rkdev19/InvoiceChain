@@ -38,6 +38,7 @@
     "canvas-confetti": "^1.9.4",
     "framer-motion": "^12.38.0",
     "notistack": "^3.0.1",
+    "pdfjs-dist": "^5.7.284",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-router-dom": "^7.14.0",

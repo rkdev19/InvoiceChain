@@ -84,6 +84,20 @@ Group:
 ```
 Both execute atomically or neither executes.
 
+## NFT Metadata (note field)
+Each mint transaction embeds a JSON note field stored immutably on-chain:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `document_hash` | string | SHA-256 hash of the uploaded invoice PDF |
+| `document_name` | string \| null | Original filename |
+| `document_verified` | boolean | Whether a PDF was uploaded |
+| `document_confidence` | number | PDF extraction confidence score (0–100) |
+| `buyer_gstin` | string | Buyer GSTIN extracted from PDF, or `"not_detected"` |
+| `seller_gstin_verified` | boolean | Whether seller GSTIN was found in the PDF |
+| `amount_verified` | boolean | Whether extracted amount matches claimed amount (±20%) |
+| `date_verified` | boolean | Whether invoice date is within last 90 days |
+
 ## Error Codes
 | Error | Cause |
 |-------|-------|

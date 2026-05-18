@@ -11,6 +11,8 @@ import { InvoiceFactory } from '../contracts/Invoice'
 import { loraBase } from '../utils/lora'
 import { verifyGstin } from '../utils/verifyGstin'
 import type { GstData } from '../utils/verifyGstin'
+import { extractInvoice } from '../utils/extractInvoice'
+import type { ExtractionResult } from '../utils/extractInvoice'
 import { parseError } from '../utils/parseError'
 import type { PastInvoice } from '../context/InvoiceContext'
 
@@ -88,22 +90,47 @@ function SpinArc() {
 }
 
 // ── GST verified pill ─────────────────────────────────────────────
-function GstPill({ ok }: { ok: boolean }) {
-  const color = ok ? 'var(--status-low)' : 'var(--status-high)'
-  const label = ok ? 'GST VERIFIED' : 'INVALID GSTIN'
+function GstPill({
+  ok,
+  method,
+}: {
+  ok: boolean
+  method?: 'GOVERNMENT_API_SETU' | 'GSTIN_CHECKSUM_FALLBACK'
+}) {
+  if (!ok) {
+    return (
+      <span
+        className="mono"
+        style={{
+          display: 'inline-flex', alignItems: 'center', gap: 5,
+          fontSize: 11, color: 'var(--status-high)',
+          border: '1px solid var(--status-high)',
+          padding: '2px 8px', borderRadius: 2, letterSpacing: '0.06em',
+        }}
+      >
+        <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--status-high)', display: 'inline-block' }} />
+        INVALID GSTIN
+      </span>
+    )
+  }
+
+  const isLive = method === 'GOVERNMENT_API_SETU'
+  const color = isLive ? 'var(--status-low)' : 'var(--status-medium)'
+  const label = isLive ? 'GST VERIFIED · API SETU' : 'GST FORMAT VERIFIED'
+  const tooltip = isLive
+    ? 'Verified via Government of India API Setu gateway'
+    : 'Format validated. Live API unavailable.'
+
   return (
     <span
       className="mono"
+      title={tooltip}
       style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: 5,
-        fontSize: 11,
-        color,
+        display: 'inline-flex', alignItems: 'center', gap: 5,
+        fontSize: 11, color,
         border: `1px solid ${color}`,
-        padding: '2px 8px',
-        borderRadius: 2,
-        letterSpacing: '0.06em',
+        padding: '2px 8px', borderRadius: 2, letterSpacing: '0.06em',
+        cursor: 'default',
       }}
     >
       <span style={{ width: 6, height: 6, borderRadius: '50%', background: color, display: 'inline-block' }} />
@@ -128,7 +155,6 @@ function GstSection({
   const [errorMsg, setErrorMsg] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
 
-  // GSTIN format: 15 chars, regex
   const REGEX = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/
   const upper = gstin.trim().toUpperCase()
   const len = upper.length
@@ -167,8 +193,6 @@ function GstSection({
     if (raw.length > 15) return
     setGstin(raw)
     if (state === 'error') setState('idle')
-
-    // Auto-trigger at exactly 15 valid chars
     if (raw.length === 15 && REGEX.test(raw)) {
       runVerify(raw)
     }
@@ -176,23 +200,17 @@ function GstSection({
 
   return (
     <div style={{ marginBottom: 28 }}>
-      {/* Section header */}
       <div
         className="mono"
         style={{
-          fontSize: 11,
-          color: 'var(--text-muted)',
-          letterSpacing: '0.12em',
-          textTransform: 'uppercase',
-          marginBottom: 16,
-          paddingBottom: 10,
-          borderBottom: '1px solid var(--border-subtle)',
+          fontSize: 11, color: 'var(--text-muted)', letterSpacing: '0.12em',
+          textTransform: 'uppercase', marginBottom: 16,
+          paddingBottom: 10, borderBottom: '1px solid var(--border-subtle)',
         }}
       >
         Business Verification
       </div>
 
-      {/* GSTIN input */}
       <div style={{ marginBottom: 4 }}>
         <label style={LABEL}>GST Identification Number</label>
         <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -218,25 +236,18 @@ function GstSection({
               letterSpacing: '0.06em',
             }}
           />
-          {/* State indicator alongside input */}
-          <div style={{ flexShrink: 0, minWidth: 120, display: 'flex', alignItems: 'center' }}>
+          <div style={{ flexShrink: 0, minWidth: 160, display: 'flex', alignItems: 'center' }}>
             {state === 'verifying' && (
-              <span
-                style={{
-                  fontFamily: "'IBM Plex Sans', sans-serif",
-                  fontSize: 13,
-                  color: 'var(--text-secondary)',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                }}
-              >
+              <span style={{ fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 13, color: 'var(--text-secondary)', display: 'inline-flex', alignItems: 'center' }}>
                 <SpinArc />
                 Verifying…
               </span>
             )}
-            {state === 'success' && <GstPill ok={true} />}
+            {state === 'success' && result && (
+              <GstPill ok={true} method={result.verification_method} />
+            )}
             {state === 'error' && <GstPill ok={false} />}
-            {(state === 'idle') && len > 0 && len < 15 && (
+            {state === 'idle' && len > 0 && len < 15 && (
               <span className="mono" style={{ fontSize: 11, color: 'var(--text-muted)', letterSpacing: '0.06em' }}>
                 {len}/15
               </span>
@@ -244,7 +255,6 @@ function GstSection({
           </div>
         </div>
 
-        {/* Hint / error line */}
         <div style={{ marginTop: 4 }}>
           {state === 'error' ? (
             <span style={{ fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 12, color: 'var(--text-muted)' }}>
@@ -258,7 +268,6 @@ function GstSection({
         </div>
       </div>
 
-      {/* Business details card — slides in on success */}
       <AnimatePresence>
         {state === 'success' && result && (
           <motion.div
@@ -277,13 +286,7 @@ function GstSection({
                 padding: '16px 20px',
               }}
             >
-              <div
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: '1fr 1fr',
-                  gap: '10px 24px',
-                }}
-              >
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px 24px' }}>
                 {[
                   { label: 'Business Name', value: result.business_name },
                   { label: 'State', value: result.state },
@@ -293,22 +296,10 @@ function GstSection({
                   { label: 'Status', value: result.status, accent: 'var(--status-low)' },
                 ].map(({ label, value, accent }) => (
                   <div key={label}>
-                    <div
-                      style={{
-                        fontFamily: "'IBM Plex Sans', sans-serif",
-                        fontSize: 10,
-                        textTransform: 'uppercase',
-                        letterSpacing: '0.10em',
-                        color: 'var(--text-muted)',
-                        marginBottom: 3,
-                      }}
-                    >
+                    <div style={{ fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.10em', color: 'var(--text-muted)', marginBottom: 3 }}>
                       {label}
                     </div>
-                    <div
-                      className="mono"
-                      style={{ fontSize: 13, color: accent ?? 'var(--text-primary)', letterSpacing: '0.02em' }}
-                    >
+                    <div className="mono" style={{ fontSize: 13, color: accent ?? 'var(--text-primary)', letterSpacing: '0.02em' }}>
                       {value}
                     </div>
                   </div>
@@ -336,25 +327,162 @@ function formatSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
+// ── Extraction analysis card ──────────────────────────────────────
+function ExtractionCard({ result }: { result: ExtractionResult }) {
+  const score = result.confidence_score
+  const pillColor =
+    score >= 80 ? 'var(--status-low)' :
+    score >= 50 ? 'var(--status-medium)' :
+    'var(--status-high)'
+  const pillLabel =
+    score >= 80 ? 'HIGH CONFIDENCE' :
+    score >= 50 ? 'MEDIUM CONFIDENCE' :
+    'LOW CONFIDENCE'
+
+  const rows: { label: string; ok: boolean; detail?: string }[] = [
+    {
+      label: 'Seller GSTIN found in document',
+      ok: result.seller_gstin_match,
+    },
+    {
+      label: 'Buyer GSTIN detected',
+      ok: result.buyer_gstin !== null,
+      detail: result.buyer_gstin ?? undefined,
+    },
+    {
+      label: 'Invoice amount consistent',
+      ok: result.amount_match,
+      detail: result.extracted_amount !== null
+        ? `₹${result.extracted_amount.toLocaleString('en-IN')} detected`
+        : undefined,
+    },
+    {
+      label: 'Invoice date within 90 days',
+      ok: result.date_valid,
+      detail: result.invoice_date ?? undefined,
+    },
+    {
+      label: 'Invoice number detected',
+      ok: result.invoice_number !== null,
+      detail: result.invoice_number ?? undefined,
+    },
+  ]
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.2 }}
+      style={{
+        marginTop: 12,
+        background: 'var(--bg-elevated)',
+        border: '1px solid var(--border-default)',
+        borderRadius: 3,
+        padding: '16px 20px',
+      }}
+    >
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+        <span className="mono" style={{ fontSize: 11, color: 'var(--text-muted)', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
+          Document Analysis
+        </span>
+        <span
+          className="mono"
+          style={{
+            fontSize: 10, color: pillColor,
+            border: `1px solid ${pillColor}`,
+            padding: '2px 7px', borderRadius: 2,
+            letterSpacing: '0.06em',
+          }}
+        >
+          {pillLabel}
+        </span>
+      </div>
+
+      {/* Validation rows */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {rows.map(row => (
+          <div key={row.label} style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+            <span style={{ color: row.ok ? 'var(--status-low)' : 'var(--status-high)', fontSize: 12, flexShrink: 0 }}>
+              {row.ok ? '✓' : '✗'}
+            </span>
+            <span style={{ fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 12, color: 'var(--text-secondary)' }}>
+              {row.label}
+            </span>
+            {row.detail && (
+              <span className="mono" style={{ fontSize: 11, color: 'var(--text-muted)', letterSpacing: '0.04em', marginLeft: 4 }}>
+                {row.detail}
+              </span>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {/* Buyer verified badge */}
+      {result.buyer_gstin && result.buyer_gstin_valid_format && (
+        <div style={{ marginTop: 12 }}>
+          <span
+            className="mono"
+            style={{
+              fontSize: 10, color: 'var(--status-low)',
+              border: '1px solid var(--status-low)',
+              padding: '2px 7px', borderRadius: 2,
+              letterSpacing: '0.06em',
+            }}
+          >
+            BUYER VERIFIED
+          </span>
+        </div>
+      )}
+
+      {/* Confidence notice */}
+      {score >= 50 && score < 75 && (
+        <div style={{ marginTop: 12, paddingTop: 10, borderTop: '1px solid var(--border-subtle)' }}>
+          <span style={{ fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 11, color: 'var(--status-medium)' }}>
+            Partial validation — score unaffected for MVP. Production applies adjustment.
+          </span>
+        </div>
+      )}
+      {score < 50 && (
+        <div style={{ marginTop: 12, paddingTop: 10, borderTop: '1px solid var(--border-subtle)' }}>
+          <span style={{ fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 11, color: 'var(--status-high)' }}>
+            Low document confidence detected
+          </span>
+        </div>
+      )}
+    </motion.div>
+  )
+}
+
 // ── PDF drop zone ─────────────────────────────────────────────────
 function PdfSection({
   onHashed,
   onRemoved,
+  onExtracted,
   initialHash,
   initialName,
+  initialExtraction,
+  sellerGstin,
+  claimedAmount,
 }: {
   onHashed: (hash: string, name: string) => void
   onRemoved: () => void
+  onExtracted: (result: ExtractionResult) => void
   initialHash: string | null
   initialName: string | null
+  initialExtraction: ExtractionResult | null
+  sellerGstin: string | null
+  claimedAmount: number
 }) {
-  const [pdfFile, setPdfFile]     = useState<File | null>(null)
-  const [localHash, setLocalHash] = useState<string | null>(null)
-  const [hashState, setHashState] = useState<'idle' | 'hashing' | 'done'>(
+  const [pdfFile, setPdfFile]         = useState<File | null>(null)
+  const [localHash, setLocalHash]     = useState<string | null>(null)
+  const [hashState, setHashState]     = useState<'idle' | 'hashing' | 'done'>(
     initialHash ? 'done' : 'idle'
   )
   const [isDragging, setIsDragging]   = useState(false)
   const [isHovering, setIsHovering]   = useState(false)
+  const [extracting, setExtracting]   = useState(false)
+  const [extraction, setExtraction]   = useState<ExtractionResult | null>(initialExtraction)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const currentHash = localHash ?? initialHash
@@ -366,11 +494,23 @@ function PdfSection({
     setPdfFile(file)
     setHashState('hashing')
     setLocalHash(null)
+    setExtraction(null)
     try {
       const hash = await hashFile(file)
       setLocalHash(hash)
       setHashState('done')
       onHashed(hash, file.name)
+
+      setExtracting(true)
+      try {
+        const result = await extractInvoice(file, sellerGstin, claimedAmount)
+        setExtraction(result)
+        onExtracted(result)
+      } catch {
+        // extraction failed silently — no card shown
+      } finally {
+        setExtracting(false)
+      }
     } catch {
       setHashState('idle')
       setPdfFile(null)
@@ -381,6 +521,8 @@ function PdfSection({
     setPdfFile(null)
     setLocalHash(null)
     setHashState('idle')
+    setExtraction(null)
+    setExtracting(false)
     if (fileInputRef.current) fileInputRef.current.value = ''
     onRemoved()
   }
@@ -389,23 +531,17 @@ function PdfSection({
 
   return (
     <div style={{ marginBottom: 28 }}>
-      {/* Section header */}
       <div
         className="mono"
         style={{
-          fontSize: 11,
-          color: 'var(--text-muted)',
-          letterSpacing: '0.12em',
-          textTransform: 'uppercase',
-          marginBottom: 16,
-          paddingBottom: 10,
-          borderBottom: '1px solid var(--border-subtle)',
+          fontSize: 11, color: 'var(--text-muted)', letterSpacing: '0.12em',
+          textTransform: 'uppercase', marginBottom: 16,
+          paddingBottom: 10, borderBottom: '1px solid var(--border-subtle)',
         }}
       >
         Invoice Document
       </div>
 
-      {/* Hidden file input */}
       <input
         ref={fileInputRef}
         type="file"
@@ -418,7 +554,6 @@ function PdfSection({
       />
 
       {!showCard ? (
-        /* ── Drop zone ── */
         <div
           onDragOver={e => { e.preventDefault(); setIsDragging(true) }}
           onDragEnter={e => { e.preventDefault(); setIsDragging(true) }}
@@ -453,14 +588,7 @@ function PdfSection({
             <line x1="16" y1="17" x2="8" y2="17" />
             <line x1="10" y1="9" x2="8" y2="9" />
           </svg>
-          <div
-            style={{
-              fontFamily: "'IBM Plex Sans', sans-serif",
-              fontSize: 14,
-              color: 'var(--text-secondary)',
-              marginBottom: 6,
-            }}
-          >
+          <div style={{ fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 14, color: 'var(--text-secondary)', marginBottom: 6 }}>
             Upload Invoice PDF
           </div>
           <div className="mono" style={{ fontSize: 11, color: 'var(--text-muted)', letterSpacing: '0.04em' }}>
@@ -468,7 +596,6 @@ function PdfSection({
           </div>
         </div>
       ) : (
-        /* ── File card ── */
         <div
           style={{
             background: 'var(--bg-elevated)',
@@ -489,17 +616,7 @@ function PdfSection({
               <polyline points="14 2 14 8 20 8" />
             </svg>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div
-                className="mono"
-                style={{
-                  fontSize: 13,
-                  color: 'var(--text-primary)',
-                  letterSpacing: '0.02em',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                }}
-              >
+              <div className="mono" style={{ fontSize: 13, color: 'var(--text-primary)', letterSpacing: '0.02em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {displayName ?? 'invoice.pdf'}
               </div>
               {pdfFile && (
@@ -511,15 +628,9 @@ function PdfSection({
             <button
               onClick={handleRemove}
               style={{
-                background: 'none',
-                border: 'none',
-                cursor: 'pointer',
-                color: 'var(--text-muted)',
-                fontSize: 20,
-                lineHeight: 1,
-                padding: '0 4px',
-                flexShrink: 0,
-                fontFamily: 'sans-serif',
+                background: 'none', border: 'none', cursor: 'pointer',
+                color: 'var(--text-muted)', fontSize: 20, lineHeight: 1,
+                padding: '0 4px', flexShrink: 0, fontFamily: 'sans-serif',
               }}
               title="Remove file"
             >
@@ -530,10 +641,7 @@ function PdfSection({
           {/* Hash status row */}
           <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--border-subtle)' }}>
             {hashState === 'hashing' && (
-              <span
-                className="mono"
-                style={{ fontSize: 11, color: 'var(--text-muted)', display: 'inline-flex', alignItems: 'center' }}
-              >
+              <span className="mono" style={{ fontSize: 11, color: 'var(--text-muted)', display: 'inline-flex', alignItems: 'center' }}>
                 <SpinArc />
                 Computing document hash…
               </span>
@@ -543,25 +651,36 @@ function PdfSection({
                 <span
                   className="mono"
                   style={{
-                    fontSize: 11,
-                    color: 'var(--accent-gold)',
+                    fontSize: 11, color: 'var(--accent-gold)',
                     border: '1px solid var(--accent-gold)',
-                    padding: '2px 8px',
-                    borderRadius: 2,
-                    letterSpacing: '0.06em',
+                    padding: '2px 8px', borderRadius: 2, letterSpacing: '0.06em',
                   }}
                 >
                   DOCUMENT HASH COMPUTED
                 </span>
-                <div
-                  className="mono"
-                  style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 8, letterSpacing: '0.04em' }}
-                >
+                <div className="mono" style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 8, letterSpacing: '0.04em' }}>
                   {currentHash.slice(0, 16)}…{currentHash.slice(-8)}
                 </div>
               </div>
             )}
           </div>
+
+          {/* Extraction state / analysis card */}
+          {extracting && (
+            <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
+              <motion.span
+                animate={{ opacity: [1, 0.3, 1] }}
+                transition={{ duration: 1.2, repeat: Infinity }}
+                style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--accent-gold)', display: 'inline-block', flexShrink: 0 }}
+              />
+              <span className="mono" style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                Analysing document…
+              </span>
+            </div>
+          )}
+          {!extracting && extraction && (
+            <ExtractionCard result={extraction} />
+          )}
         </div>
       )}
     </div>
@@ -590,27 +709,33 @@ export default function UploadPage() {
 
   const riskColor = score !== null ? getRiskColor(riskLevel || 'HIGH') : 'var(--text-muted)'
 
-  // PDF hash handlers
   const handlePdfHashed = (hash: string, name: string) => {
     ctx.setDocumentHash(hash)
     ctx.setDocumentName(name)
   }
+
   const handlePdfRemoved = () => {
     ctx.setDocumentHash(null)
     ctx.setDocumentName(null)
+    ctx.setDocumentConfidence(0)
+    ctx.setBuyerGstin(null)
+    ctx.setExtractionData(null)
   }
 
-  // Auto-fill client name when GST verifies
+  const handleExtracted = (result: ExtractionResult) => {
+    ctx.setDocumentConfidence(result.confidence_score)
+    ctx.setBuyerGstin(result.buyer_gstin)
+    ctx.setExtractionData(result)
+  }
+
   const handleGstVerified = (data: GstData) => {
     ctx.setGstVerified(true)
     ctx.setGstData(data)
-    // Auto-fill client/business name from verified data
     if (!client) {
       setClient(data.business_name)
     }
   }
 
-  // Keep client field in sync if it was auto-filled but user hasn't touched it
   useEffect(() => {
     if (ctx.gstData && !client) {
       setClient(ctx.gstData.business_name)
@@ -652,7 +777,6 @@ export default function UploadPage() {
     }
     setMinting(true)
     try {
-      // ── Archive previous invoice before minting a new one ─────────
       if (ctx.nftAssetId) {
         const archived: PastInvoice = {
           nftAssetId: ctx.nftAssetId,
@@ -672,7 +796,6 @@ export default function UploadPage() {
       const algorand = AlgorandClient.fromConfig({ algodConfig, indexerConfig })
       algorand.setDefaultSigner(transactionSigner)
 
-      // ── Signature 1: Deploy contract ──────────────────────────────
       const factory = new InvoiceFactory({ defaultSender: activeAddress, algorand })
       const { appClient, result: deployResult } = await factory.deploy({ onSchemaBreak: 'append', onUpdate: 'append' })
       const appAddress = String(appClient.appClient.appAddress)
@@ -682,11 +805,16 @@ export default function UploadPage() {
         ? BigInt(Math.floor(new Date(dueDate).getTime() / 1000))
         : 2_000_000_000n
 
-      // Embed document hash in payment note (stored immutably on-chain)
+      const extraction = ctx.extractionData
       const txnNote = new TextEncoder().encode(JSON.stringify({
         document_hash: ctx.documentHash ?? 'not_provided',
         document_name: ctx.documentName ?? null,
         document_verified: ctx.documentHash !== null,
+        document_confidence: ctx.documentConfidence,
+        buyer_gstin: ctx.buyerGstin ?? 'not_detected',
+        seller_gstin_verified: extraction?.seller_gstin_match ?? false,
+        amount_verified: extraction?.amount_match ?? false,
+        date_verified: extraction?.date_valid ?? false,
       }))
 
       let iccAssetId: bigint
@@ -694,9 +822,6 @@ export default function UploadPage() {
       let txnId: string
 
       if (isNewContract) {
-        // ── Signature 2a: Fresh contract — Fund + setup_icc + create_invoice ──
-        // 0.4 ALGO covers MBR for base account + ICC ASA + NFT ASA.
-        // extraFee on each app call pays for the inner transaction fee.
         const groupResult = await algorand
           .newGroup()
           .addPayment({
@@ -722,8 +847,6 @@ export default function UploadPage() {
         assetId    = groupResult.returns?.[1]?.returnValue as bigint
         txnId      = groupResult.txIds[groupResult.txIds.length - 1]
       } else {
-        // ── Signature 2b: Existing contract — ICC already set up, only create_invoice ──
-        // 0.2 ALGO covers MBR for the new NFT ASA + inner tx fee buffer.
         const groupResult = await algorand
           .newGroup()
           .addPayment({
@@ -746,9 +869,8 @@ export default function UploadPage() {
         assetId = groupResult.returns?.[0]?.returnValue as bigint
         txnId   = groupResult.txIds[groupResult.txIds.length - 1]
 
-        // Read existing ICC asset ID from contract state
         const info = await appClient.getInvoiceInfo()
-        iccAssetId = info[10] as bigint // 11-tuple index 10 = icc_asset_id
+        iccAssetId = info[10] as bigint
       }
 
       ctx.setAppId(BigInt(appClient.appClient.appId))
@@ -769,26 +891,34 @@ export default function UploadPage() {
     }
   }
 
+  const gstBadgeColor = ctx.gstData?.verification_method === 'GOVERNMENT_API_SETU'
+    ? 'var(--status-low)'
+    : 'var(--status-medium)'
+
+  const gstBadgeLabel = ctx.gstData?.verification_method === 'GOVERNMENT_API_SETU'
+    ? 'GST VERIFIED · API SETU'
+    : 'GST FORMAT VERIFIED'
+
   return (
     <div style={{ maxWidth: 560, margin: '0 auto' }}>
-      {/* Gold accent rule */}
       <div style={{ height: 3, background: 'var(--accent-gold)', marginBottom: 28 }} />
 
-      {/* ── PDF document upload ── */}
       <PdfSection
         onHashed={handlePdfHashed}
         onRemoved={handlePdfRemoved}
+        onExtracted={handleExtracted}
         initialHash={ctx.documentHash}
         initialName={ctx.documentName}
+        initialExtraction={ctx.extractionData}
+        sellerGstin={ctx.gstData?.gstin ?? null}
+        claimedAmount={Number(amount)}
       />
 
-      {/* ── GSTIN verification ── */}
       <GstSection
         onVerified={handleGstVerified}
         initialData={ctx.gstData}
       />
 
-      {/* ── Invoice form ── */}
       <form onSubmit={handleScore} style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
           <div>
@@ -858,7 +988,6 @@ export default function UploadPage() {
         </button>
       </form>
 
-      {/* ── Score reveal ── */}
       <AnimatePresence>
         {scored && score !== null && (
           <motion.div
@@ -876,36 +1005,26 @@ export default function UploadPage() {
                 padding: 28,
               }}
             >
-              {/* Header */}
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
                 <span className="label-caps">Trust Score Analysis</span>
-                <span
-                  className="pill"
-                  style={{ color: riskColor, borderColor: riskColor }}
-                >
+                <span className="pill" style={{ color: riskColor, borderColor: riskColor }}>
                   <span style={{ width: 5, height: 5, borderRadius: '50%', background: riskColor, display: 'inline-block', marginRight: 5 }} />
                   {riskLevel} RISK
                 </span>
               </div>
 
-              {/* Arc + stats */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 32 }}>
                 <ScoreArc score={score} color={riskColor} />
-
                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 14 }}>
                   <div style={{ borderBottom: '1px solid var(--border-subtle)', paddingBottom: 14 }}>
                     <div className="label-caps" style={{ marginBottom: 6 }}>Maximum Borrow Limit</div>
-                    <div
-                      className="display"
-                      style={{ fontSize: 34, color: 'var(--accent-gold)', lineHeight: 1 }}
-                    >
+                    <div className="display" style={{ fontSize: 34, color: 'var(--accent-gold)', lineHeight: 1 }}>
                       ₹{borrowLimit.toLocaleString('en-IN')}
                     </div>
                     <div className="mono" style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 4 }}>
                       = ₹{Number(amount).toLocaleString('en-IN')} × {score}%
                     </div>
                   </div>
-
                   <div style={{ fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.6 }}>
                     Based on SME repayment history: 6/7 invoices paid on time.
                     Reliability 40% + Frequency 30% + Consistency 30%.
@@ -913,43 +1032,40 @@ export default function UploadPage() {
                 </div>
               </div>
 
-              {/* GST badge — shown if verified */}
               {ctx.gstVerified && ctx.gstData && (
                 <div
                   className="mono"
                   style={{
-                    marginTop: 16,
-                    paddingTop: 12,
+                    marginTop: 16, paddingTop: 12,
                     borderTop: '1px solid var(--border-subtle)',
-                    fontSize: 11,
-                    color: 'var(--status-low)',
-                    letterSpacing: '0.06em',
+                    fontSize: 11, color: gstBadgeColor, letterSpacing: '0.06em',
                   }}
                 >
-                  GST VERIFIED · {ctx.gstData.state} · {ctx.gstData.taxpayer_type} Taxpayer · Since {ctx.gstData.registration_date.slice(-4)}
+                  {gstBadgeLabel} · {ctx.gstData.state} · {ctx.gstData.taxpayer_type} Taxpayer · Since {ctx.gstData.registration_date.slice(-4)}
                 </div>
               )}
 
-              {/* Document hash badge — shown if PDF was uploaded */}
               {ctx.documentHash && (
                 <div
                   style={{
                     marginTop: ctx.gstVerified ? 8 : 16,
                     paddingTop: ctx.gstVerified ? 0 : 12,
                     borderTop: ctx.gstVerified ? 'none' : '1px solid var(--border-subtle)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 8,
+                    display: 'flex', alignItems: 'center', gap: 8,
                   }}
                 >
                   <span style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--status-low)', display: 'inline-block', flexShrink: 0 }} />
                   <span className="mono" style={{ fontSize: 11, color: 'var(--status-low)', letterSpacing: '0.06em' }}>
                     DOCUMENT · PDF Verified · SHA-256
+                    {ctx.documentConfidence > 0 && (
+                      <span style={{ color: 'var(--text-muted)', marginLeft: 8 }}>
+                        · Confidence {ctx.documentConfidence}%
+                      </span>
+                    )}
                   </span>
                 </div>
               )}
 
-              {/* Mint section */}
               <div style={{ marginTop: 24, borderTop: '1px solid var(--border-default)', paddingTop: 20 }}>
                 {ctx.nftAssetId !== null ? (
                   <div>
@@ -972,7 +1088,6 @@ export default function UploadPage() {
                       </div>
                     </div>
                     {ctx.isBorrowed ? (
-                      /* Active loan — must repay before new invoice */
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
                         <div style={{ fontSize: 12, color: 'var(--status-medium)', fontFamily: "'IBM Plex Sans', sans-serif", lineHeight: 1.5 }}>
                           Active loan in progress — repay first to mint a new invoice.
@@ -983,7 +1098,6 @@ export default function UploadPage() {
                         </button>
                       </div>
                     ) : (
-                      /* No active loan — can re-borrow or start fresh */
                       <div style={{ display: 'flex', gap: 10 }}>
                         <button className="btn-primary" onClick={() => navigate('/app/borrow')}>
                           Re-Borrow ICC →
@@ -1027,7 +1141,6 @@ export default function UploadPage() {
         )}
       </AnimatePresence>
 
-      {/* Invoice preview table */}
       {(client || amount || dueDate) && (
         <motion.div
           initial={{ opacity: 0 }}

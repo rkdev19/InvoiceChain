@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react'
 import { InvoiceClient } from '../contracts/Invoice'
 import type { GstData } from '../utils/verifyGstin'
+import type { ExtractionResult } from '../utils/extractInvoice'
 
 export interface PastInvoice {
   nftAssetId: bigint
@@ -49,6 +50,9 @@ interface PersistedState {
   gstData: GstData | null
   documentHash: string | null
   documentName: string | null
+  documentConfidence: number
+  buyerGstin: string | null
+  extractionData: ExtractionResult | null
   pastInvoices: PastInvoice[]
 }
 
@@ -95,6 +99,10 @@ interface InvoiceState extends PersistedState {
   setDocumentHash: (v: string | null) => void
   setDocumentName: (v: string | null) => void
 
+  setDocumentConfidence: (v: number) => void
+  setBuyerGstin: (v: string | null) => void
+  setExtractionData: (v: ExtractionResult | null) => void
+
   setPastInvoices: (v: PastInvoice[]) => void
 
   appClient: InvoiceClient | null
@@ -127,6 +135,9 @@ export const InvoiceProvider = ({ children }: { children: ReactNode }) => {
   const [gstData, setGstData]         = useState<GstData | null>(saved.gstData ?? null)
   const [documentHash, setDocumentHash] = useState<string | null>(saved.documentHash ?? null)
   const [documentName, setDocumentName] = useState<string | null>(saved.documentName ?? null)
+  const [documentConfidence, setDocumentConfidence] = useState(saved.documentConfidence ?? 0)
+  const [buyerGstin, setBuyerGstin]   = useState<string | null>(saved.buyerGstin ?? null)
+  const [extractionData, setExtractionData] = useState<ExtractionResult | null>(saved.extractionData ?? null)
   const [pastInvoices, setPastInvoices] = useState<PastInvoice[]>(saved.pastInvoices ?? [])
   const [appClient, setAppClient]     = useState<InvoiceClient | null>(null) // reconstructed at runtime
 
@@ -140,6 +151,7 @@ export const InvoiceProvider = ({ children }: { children: ReactNode }) => {
       iccAssetId, collateralLocked, invoiceStatus,
       gstVerified, gstData,
       documentHash, documentName,
+      documentConfidence, buyerGstin, extractionData,
       pastInvoices,
     }
     try {
@@ -153,6 +165,7 @@ export const InvoiceProvider = ({ children }: { children: ReactNode }) => {
     iccAssetId, collateralLocked, invoiceStatus,
     gstVerified, gstData,
     documentHash, documentName,
+    documentConfidence, buyerGstin, extractionData,
     pastInvoices,
   ])
 
@@ -180,6 +193,9 @@ export const InvoiceProvider = ({ children }: { children: ReactNode }) => {
         gstData, setGstData,
         documentHash, setDocumentHash,
         documentName, setDocumentName,
+        documentConfidence, setDocumentConfidence,
+        buyerGstin, setBuyerGstin,
+        extractionData, setExtractionData,
         pastInvoices, setPastInvoices,
         appClient, setAppClient,
       }}
