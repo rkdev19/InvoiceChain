@@ -18,7 +18,8 @@ interface ImportMetaEnv {
   readonly VITE_KMD_PASSWORD: string
   readonly VITE_KMD_WALLET: string
 
-  readonly VITE_GSTIN_API_KEY?: string
+  readonly VITE_MASTERS_INDIA_TOKEN?: string
+  readonly VITE_MASTERS_INDIA_CLIENT_ID?: string
 }
 
 interface ImportMeta {

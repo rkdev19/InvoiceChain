@@ -95,7 +95,7 @@ function GstPill({
   method,
 }: {
   ok: boolean
-  method?: 'GOVERNMENT_API_SETU' | 'GSTIN_CHECKSUM_FALLBACK'
+  method?: 'MASTERS_INDIA_VERIFIED' | 'GSTIN_CHECKSUM_FALLBACK'
 }) {
   if (!ok) {
     return (
@@ -114,11 +114,11 @@ function GstPill({
     )
   }
 
-  const isLive = method === 'GOVERNMENT_API_SETU'
+  const isLive = method === 'MASTERS_INDIA_VERIFIED'
   const color = isLive ? 'var(--status-low)' : 'var(--status-medium)'
-  const label = isLive ? 'GST VERIFIED · API SETU' : 'GST FORMAT VERIFIED'
+  const label = isLive ? 'GST VERIFIED · LIVE API' : 'GST FORMAT VERIFIED'
   const tooltip = isLive
-    ? 'Verified via Government of India API Setu gateway'
+    ? 'Verified via Masters India live GST API'
     : 'Format validated. Live API unavailable.'
 
   return (
@@ -891,12 +891,12 @@ export default function UploadPage() {
     }
   }
 
-  const gstBadgeColor = ctx.gstData?.verification_method === 'GOVERNMENT_API_SETU'
+  const gstBadgeColor = ctx.gstData?.verification_method === 'MASTERS_INDIA_VERIFIED'
     ? 'var(--status-low)'
     : 'var(--status-medium)'
 
-  const gstBadgeLabel = ctx.gstData?.verification_method === 'GOVERNMENT_API_SETU'
-    ? 'GST VERIFIED · API SETU'
+  const gstBadgeLabel = ctx.gstData?.verification_method === 'MASTERS_INDIA_VERIFIED'
+    ? 'GST VERIFIED · LIVE API'
     : 'GST FORMAT VERIFIED'
 
   return (

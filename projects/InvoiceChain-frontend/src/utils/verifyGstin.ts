@@ -1,5 +1,5 @@
 // GSTIN Verification Utility
-// Tries Government of India API Setu gateway first;
+// Tries Masters India live API first;
 // falls back to deterministic checksum verifier if API is unavailable.
 
 const GSTIN_REGEX = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/
@@ -56,7 +56,7 @@ export interface GstData {
   status: 'ACTIVE' | 'INACTIVE' | 'CANCELLED'
   last_return_filed: string
   verified_at: string
-  verification_method: 'GOVERNMENT_API_SETU' | 'GSTIN_CHECKSUM_FALLBACK'
+  verification_method: 'MASTERS_INDIA_VERIFIED' | 'GSTIN_CHECKSUM_FALLBACK'
 }
 
 export interface GstError {
@@ -66,13 +66,21 @@ export interface GstError {
 
 export type GstResult = GstData | GstError
 
-interface ApiSetuTaxpayer {
+interface MastersIndiaTaxpayer {
   lgnm?: string
-  pradr?: { addr?: { stcd?: string } }
+  tradeNam?: string
+  pradr?: { addr?: { stcd?: string; st?: string } }
   rgdt?: string
   dty?: string
   sts?: string
   gstin?: string
+  ctb?: string
+}
+
+interface MastersIndiaResponse {
+  data?: MastersIndiaTaxpayer
+  taxpayerInfo?: MastersIndiaTaxpayer
+  error?: string
 }
 
 function buildFallbackData(normalized: string): GstData {
@@ -107,10 +115,11 @@ function buildFallbackData(normalized: string): GstData {
   }
 }
 
-function mapApiSetuResponse(normalized: string, data: ApiSetuTaxpayer): GstData {
+function mapMastersIndiaResponse(normalized: string, raw: MastersIndiaResponse): GstData {
+  const taxpayer = raw.data ?? raw.taxpayerInfo ?? {}
   const stateCode = normalized.slice(0, 2)
-  const stateFromCode = STATE_CODES[stateCode] ?? data.pradr?.addr?.stcd ?? 'Unknown'
-  const rawStatus = (data.sts ?? 'Active').trim().toLowerCase()
+  const stateFromCode = STATE_CODES[stateCode] ?? taxpayer.pradr?.addr?.st ?? 'Unknown'
+  const rawStatus = (taxpayer.sts ?? 'Active').trim().toLowerCase()
   const status: 'ACTIVE' | 'INACTIVE' | 'CANCELLED' =
     rawStatus === 'active' ? 'ACTIVE' :
     rawStatus === 'cancelled' ? 'CANCELLED' : 'INACTIVE'
@@ -118,17 +127,17 @@ function mapApiSetuResponse(normalized: string, data: ApiSetuTaxpayer): GstData 
   return {
     valid: true,
     gstin: normalized,
-    business_name: data.lgnm ?? normalized,
+    business_name: taxpayer.lgnm ?? taxpayer.tradeNam ?? normalized,
     state: stateFromCode,
     state_code: stateCode,
-    registration_date: data.rgdt ?? '—',
-    taxpayer_type: data.dty ?? 'Regular',
+    registration_date: taxpayer.rgdt ?? '—',
+    taxpayer_type: taxpayer.dty ?? taxpayer.ctb ?? 'Regular',
     annual_turnover: '—',
     filing_status: 'Regular filer',
     status,
     last_return_filed: '—',
     verified_at: new Date().toISOString(),
-    verification_method: 'GOVERNMENT_API_SETU',
+    verification_method: 'MASTERS_INDIA_VERIFIED',
   }
 }
 
@@ -138,29 +147,31 @@ export async function verifyGstin(gstin: string): Promise<GstResult> {
   }
 
   const normalized = gstin.trim().toUpperCase()
-  const apiKey = import.meta.env.VITE_GSTIN_API_KEY as string | undefined
+  const token = import.meta.env.VITE_MASTERS_INDIA_TOKEN as string | undefined
+  const clientId = import.meta.env.VITE_MASTERS_INDIA_CLIENT_ID as string | undefined
   const startTime = Date.now()
 
-  if (apiKey) {
+  if (token && clientId) {
     try {
       const res = await fetch(
-        `https://api.apisetu.gov.in/gst/v3/taxpayer/${normalized}`,
+        `https://commonapi.mastersindia.co/commonapis/searchgstin?gstin=${normalized}`,
         {
           headers: {
-            'X-APISETU-APIKEY': apiKey,
-            'X-APISETU-CLIENT': 'invoicechain-credit',
-            'Accept': 'application/json',
+            'Authorization': `Bearer ${token}`,
+            'client_id': clientId,
           },
         }
       )
       if (res.ok) {
-        const data = await res.json() as ApiSetuTaxpayer
-        const elapsed = Date.now() - startTime
-        if (elapsed < 800) await new Promise(r => setTimeout(r, 800 - elapsed))
-        return mapApiSetuResponse(normalized, data)
+        const raw = await res.json() as MastersIndiaResponse
+        if (!raw.error && (raw.data ?? raw.taxpayerInfo)) {
+          const elapsed = Date.now() - startTime
+          if (elapsed < 800) await new Promise(r => setTimeout(r, 800 - elapsed))
+          return mapMastersIndiaResponse(normalized, raw)
+        }
       }
     } catch {
-      // API Setu unavailable, using fallback
+      // Masters India unavailable, using fallback
     }
   }
 
