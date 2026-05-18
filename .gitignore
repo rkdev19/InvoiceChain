@@ -171,3 +171,8 @@ node_modules
 # Claude / MCP local config (may contain API keys)
 .mcp.json
 .claude/
+
+# AI tooling and workspace files
+CLAUDE.md
+AGENTS.md
+InvoiceChain.code-workspace
