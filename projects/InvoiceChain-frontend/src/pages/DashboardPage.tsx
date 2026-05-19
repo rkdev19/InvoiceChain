@@ -99,9 +99,10 @@ function RiskDot({ risk }: { risk: string }) {
 // ── Status pill ──────────────────────────────────────────────────
 function StatusPill({ status }: { status: string }) {
   const color =
+    status === 'REPAID'     ? 'var(--status-low)' :
     status === 'ACTIVE'     ? 'var(--status-low)' :
     status === 'LIQUIDATED' ? 'var(--status-liquidated)' :
-    'var(--status-medium)'
+    'var(--status-medium)' // BORROWED
   return (
     <span
       className="mono"
@@ -172,7 +173,10 @@ export default function DashboardPage() {
       ctx.setBorrowedAmount(borrowedAmount)
       ctx.setNftAssetId(nftAssetId)
       ctx.setCollateralLocked(Boolean(collateralLocked))
-      ctx.setInvoiceStatus(status)
+      // Local REPAID takes priority — don't let a stale chain read downgrade it
+      if (!(ctx.invoiceStatus === 'REPAID' && status === 'ACTIVE')) {
+        ctx.setInvoiceStatus(status)
+      }
       ctx.setIccAssetId(iccAssetId)
       ctx.setPoolBalance(poolResult.return ?? 0n)
     } catch { /* contract not yet initialised */ }
@@ -229,7 +233,7 @@ export default function DashboardPage() {
         dueDate: ctx.dueDate || '—',
         score: ctx.trustScore,
         risk: ctx.riskLevel || '—',
-        status: ctx.invoiceStatus || 'ACTIVE',
+        status: ctx.isBorrowed ? 'BORROWED' : (ctx.invoiceStatus || 'ACTIVE'),
         txnId: ctx.mintTxnId,
       }
     : null
@@ -450,6 +454,14 @@ export default function DashboardPage() {
                         style={{ fontSize: 10, padding: '4px 10px', color: 'var(--status-medium)', borderColor: 'var(--status-medium)' }}
                       >
                         {repaying ? 'Repaying…' : 'Repay'}
+                      </button>
+                    ) : ctx.invoiceStatus === 'REPAID' ? (
+                      <button
+                        onClick={() => navigate('/app/borrow')}
+                        className="btn-secondary"
+                        style={{ fontSize: 10, padding: '4px 10px', color: 'var(--status-low)', borderColor: 'var(--status-low)' }}
+                      >
+                        Borrow Again
                       </button>
                     ) : (
                       <button

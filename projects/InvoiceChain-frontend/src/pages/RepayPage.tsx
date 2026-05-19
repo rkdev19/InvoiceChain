@@ -29,6 +29,7 @@ export default function RepayPage() {
 
   const [repaying, setRepaying] = useState(false)
   const [successTxn, setSuccessTxn] = useState<string | null>(null)
+  const [repaidAmount, setRepaidAmount] = useState(0)
 
   // ── Guard: no active borrow ───────────────────────────────────
   if (!ctx.isBorrowed || !ctx.nftAssetId) {
@@ -64,7 +65,7 @@ export default function RepayPage() {
             className="display"
             style={{ fontSize: 40, color: 'var(--status-low)', lineHeight: 1, marginBottom: 8 }}
           >
-            {Number(ctx.borrowedAmount).toLocaleString()} ICC
+            {repaidAmount.toLocaleString()} ICC
           </div>
           <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 20, lineHeight: 1.6 }}>
             NFT returned to your wallet. Collateral released.
@@ -150,6 +151,7 @@ export default function RepayPage() {
 
       const txnId = result.transaction.txID()
 
+      setRepaidAmount(Number(ctx.borrowedAmount))
       ctx.setIsBorrowed(false)
       ctx.setBorrowedAmount(0n)
       ctx.setCollateralLocked(false)
