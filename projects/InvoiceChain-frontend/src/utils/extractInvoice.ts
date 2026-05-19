@@ -89,9 +89,9 @@ function isWithin90Days(dateStr: string): boolean {
 
 function findInvoiceNumber(text: string): string | null {
   const patterns = [
-    /INV[-\/\s]?\d+/gi,
-    /Invoice\s*No[\.:\s]+\S+/gi,
-    /Invoice\s*#\s*\S+/gi,
+    /INV[-\/\s]?[\w\d-]+/gi,
+    /Invoice\s*No[\.:\s]+[\w\d-]+/gi,
+    /Invoice\s*#\s*[\w\d-]+/gi,
   ]
   for (const pattern of patterns) {
     const m = text.match(pattern)
@@ -115,10 +115,12 @@ export async function extractInvoice(
   const buyerValid = buyerGstin ? GSTIN_VALID.test(buyerGstin) : false
 
   const extractedAmount = findAmount(text)
-  const amountMatch =
-    extractedAmount !== null && claimedAmount > 0
-      ? Math.abs(extractedAmount - claimedAmount) / claimedAmount <= 0.2
-      : false
+  const amountMatch = (() => {
+    if (extractedAmount === null || claimedAmount <= 0) return false
+    const directMatch = Math.abs(extractedAmount - claimedAmount) / claimedAmount < 0.25
+    const gstExclusiveMatch = Math.abs((extractedAmount / 1.18) - claimedAmount) / claimedAmount < 0.15
+    return directMatch || gstExclusiveMatch
+  })()
 
   const invoiceDate = findDate(text)
   const dateValid = invoiceDate ? isWithin90Days(invoiceDate) : false
