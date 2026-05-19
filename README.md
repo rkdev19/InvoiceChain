@@ -139,21 +139,6 @@ Borrow Limit = floor(Invoice Amount × Score / 100)
 - **340 million** — Indians with no credit score
 - **TReDS** — Rs.1.5L Cr annual volume, 90% inaccessible to small MSMEs
 
-## Team
-
-Built by Team MetaMinds for AlgoBharat Hack Series 3.0
-
-| Name | Role |
-|------|------|
-| Ritesh Katore | Full Stack Developer & Protocol Architect |
-| Maroti Patre | Co-founder & Product Lead |
-
-## Submission
-
-- **Hackathon:** AlgoBharat Hack Series 3.0 — Round 3
-- **Password:** ALGOHackSeries3
-- **Submitted:** May 2026
-
 ---
 
 *Built with AlgoKit · Deployed on Algorand TestNet · May 2026*
