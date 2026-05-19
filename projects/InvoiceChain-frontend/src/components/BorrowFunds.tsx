@@ -5,7 +5,7 @@ import React, { useState } from 'react'
 import { useInvoice } from '../context/InvoiceContext'
 import { getAlgodConfigFromViteEnvironment, getIndexerConfigFromViteEnvironment } from '../utils/network/getAlgoClientConfigs'
 
-const LORA_TXN = 'https://lora.algokit.io/localnet/transaction'
+const LORA_TXN = 'https://lora.algokit.io/testnet/transaction'
 
 const BorrowFunds: React.FC = () => {
   const ctx = useInvoice()

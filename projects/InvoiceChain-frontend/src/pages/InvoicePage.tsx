@@ -71,7 +71,7 @@ const InvoicePage: React.FC = () => {
                 <h2 className="card-title text-xl">Connect Your Wallet</h2>
                 <p className="text-sm text-base-content/60 max-w-sm">
                   Connect your Algorand wallet to get started with on-chain invoice financing.
-                  We support LocalNet KMD, Pera, and Defly.
+                  We support Pera and Defly on TestNet.
                 </p>
 
                 {activeAddress ? (

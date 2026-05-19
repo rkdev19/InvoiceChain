@@ -33,10 +33,9 @@ function ellipse(addr: string) {
 }
 
 function networkInfo() {
-  const net = import.meta.env.VITE_ALGOD_NETWORK ?? 'localnet'
-  if (net === 'mainnet') return { label: 'MAINNET',  color: 'var(--status-low)' }
-  if (net === 'testnet') return { label: 'TESTNET',  color: 'var(--status-medium)' }
-  return                        { label: 'LOCALNET', color: '#60A5FA' }
+  const net = import.meta.env.VITE_ALGOD_NETWORK ?? 'testnet'
+  if (net === 'mainnet') return { label: 'MAINNET', color: 'var(--status-low)' }
+  return                        { label: 'TESTNET', color: 'var(--status-medium)' }
 }
 
 function pageName(pathname: string) {
@@ -437,7 +436,7 @@ export default function AppLayout() {
                 borderRadius: 2,
               }}
             >
-              {import.meta.env.VITE_ALGOD_NETWORK ?? 'localnet'}
+              {import.meta.env.VITE_ALGOD_NETWORK ?? 'testnet'}
             </div>
           </div>
         </header>
