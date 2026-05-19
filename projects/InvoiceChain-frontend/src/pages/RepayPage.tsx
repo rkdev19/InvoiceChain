@@ -156,7 +156,24 @@ export default function RepayPage() {
       ctx.setBorrowedAmount(0n)
       ctx.setCollateralLocked(false)
       ctx.setInvoiceStatus('REPAID')
+
+      // Force-patch localStorage immediately — context useEffect is async
+      // and Dashboard would read stale state if we navigate before it fires
+      try {
+        const stored = localStorage.getItem('ic_state_v1')
+        const parsed = stored ? JSON.parse(stored) : {}
+        localStorage.setItem('ic_state_v1', JSON.stringify({
+          ...parsed,
+          invoiceStatus: 'REPAID',
+          isBorrowed: false,
+          collateralLocked: false,
+          borrowedAmount: { __bigint: '0' },
+        }))
+      } catch { /* storage unavailable */ }
+
+      enqueueSnackbar('Loan repaid. Invoice NFT returned to your wallet.', { variant: 'success' })
       setSuccessTxn(txnId)
+      setTimeout(() => navigate('/app'), 1500)
     } catch (err: unknown) {
       const msg = parseError(err)
       if (msg) enqueueSnackbar(msg, { variant: 'error', autoHideDuration: 5000 })
