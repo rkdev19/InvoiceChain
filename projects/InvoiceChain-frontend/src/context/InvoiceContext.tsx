@@ -63,7 +63,14 @@ function loadPersistedState(): Partial<PersistedState> {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (!raw) return {}
-    return deserialize<Partial<PersistedState>>(raw)
+    const parsed = deserialize<Partial<PersistedState>>(raw)
+    if (parsed.pastInvoices) {
+      parsed.pastInvoices = parsed.pastInvoices.filter(
+        (item, index, self) =>
+          index === self.findIndex(h => String(h.nftAssetId) === String(item.nftAssetId))
+      )
+    }
+    return parsed
   } catch {
     return {}
   }

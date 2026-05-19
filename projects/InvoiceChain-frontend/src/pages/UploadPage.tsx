@@ -809,17 +809,22 @@ export default function UploadPage() {
     setMinting(true)
     try {
       if (ctx.nftAssetId) {
-        const archived: PastInvoice = {
-          nftAssetId: ctx.nftAssetId,
-          amount: ctx.amount,
-          dueDate: ctx.dueDate,
-          trustScore: ctx.trustScore,
-          riskLevel: ctx.riskLevel || 'HIGH',
-          invoiceStatus: ctx.invoiceStatus === 'ACTIVE' ? 'REPAID' : (ctx.invoiceStatus || 'REPAID'),
-          mintTxnId: ctx.mintTxnId,
-          documentHash: ctx.documentHash,
+        const alreadyArchived = ctx.pastInvoices.some(
+          h => String(h.nftAssetId) === String(ctx.nftAssetId)
+        )
+        if (!alreadyArchived) {
+          const archived: PastInvoice = {
+            nftAssetId: ctx.nftAssetId,
+            amount: ctx.amount,
+            dueDate: ctx.dueDate,
+            trustScore: ctx.trustScore,
+            riskLevel: ctx.riskLevel || 'HIGH',
+            invoiceStatus: ctx.invoiceStatus === 'ACTIVE' ? 'REPAID' : (ctx.invoiceStatus || 'REPAID'),
+            mintTxnId: ctx.mintTxnId,
+            documentHash: ctx.documentHash,
+          }
+          ctx.setPastInvoices([...ctx.pastInvoices, archived])
         }
-        ctx.setPastInvoices([...ctx.pastInvoices, archived])
       }
 
       const algodConfig = getAlgodConfigFromViteEnvironment()
@@ -911,7 +916,16 @@ export default function UploadPage() {
       ctx.setIccAssetId(iccAssetId)
       ctx.setInvoiceStatus('ACTIVE')
       ctx.setCollateralLocked(false)
+      ctx.setIsBorrowed(false)
+      ctx.setBorrowedAmount(0n)
       ctx.setAppClient(appClient)
+      // Explicitly sync form data into context so Dashboard never shows blanks
+      ctx.setAmount(Number(amount))
+      ctx.setDueDate(dueDate)
+      ctx.setTrustScore(score ?? 0)
+      ctx.setRiskLevel(riskLevel)
+      ctx.setBorrowLimit(borrowLimit)
+      ctx.setBusinessName(client)
 
       enqueueSnackbar(`NFT minted. Asset ID: ${assetId}`, { variant: 'success' })
     } catch (err: unknown) {
