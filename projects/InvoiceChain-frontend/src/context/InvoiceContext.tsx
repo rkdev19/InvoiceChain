@@ -25,9 +25,12 @@ function serialize(v: unknown): string {
 }
 
 function deserialize<T>(json: string): T {
-  return JSON.parse(json, (_, val) =>
-    val && typeof val === 'object' && '__bigint' in val ? BigInt(val.__bigint as string) : val
-  ) as T
+  return JSON.parse(json, (_, val) => {
+    if (val && typeof val === 'object' && '__bigint' in val) {
+      try { return BigInt(val.__bigint as string) } catch { return null }
+    }
+    return val
+  }) as T
 }
 
 interface PersistedState {

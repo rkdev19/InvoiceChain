@@ -709,6 +709,37 @@ export default function UploadPage() {
 
   const riskColor = score !== null ? getRiskColor(riskLevel || 'HIGH') : 'var(--text-muted)'
 
+  const hasExistingInvoice = ctx.nftAssetId !== null
+  const canReBorrow = hasExistingInvoice && ctx.invoiceStatus === 'REPAID' && !ctx.isBorrowed
+  const [showFreshForm, setShowFreshForm] = useState(false)
+
+  const existingStatusColor =
+    ctx.invoiceStatus === 'REPAID' ? 'var(--status-low)' :
+    ctx.invoiceStatus === 'LIQUIDATED' ? 'var(--status-high)' :
+    'var(--status-medium)'
+
+  const handleStartFresh = () => {
+    ctx.setDocumentHash(null)
+    ctx.setDocumentName(null)
+    ctx.setExtractionData(null)
+    ctx.setDocumentConfidence(0)
+    ctx.setBuyerGstin(null)
+    ctx.setTrustScore(0)
+    ctx.setAmount(0)
+    ctx.setDueDate('')
+    ctx.setBusinessName('')
+    ctx.setRiskLevel('')
+    ctx.setBorrowLimit(0)
+    setAmount('')
+    setClient('')
+    setDueDate('')
+    setScored(false)
+    setScore(null)
+    setRiskLevel('')
+    setBorrowLimit(0)
+    setShowFreshForm(true)
+  }
+
   const handlePdfHashed = (hash: string, name: string) => {
     ctx.setDocumentHash(hash)
     ctx.setDocumentName(name)
@@ -902,6 +933,68 @@ export default function UploadPage() {
   return (
     <div style={{ maxWidth: 560, margin: '0 auto' }}>
       <div style={{ height: 3, background: 'var(--accent-gold)', marginBottom: 28 }} />
+
+      {/* ── Existing invoice options ── */}
+      {hasExistingInvoice && !showFreshForm ? (
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.2 }}
+        >
+          <div
+            style={{
+              background: 'var(--bg-elevated)',
+              border: '1px solid var(--border-default)',
+              borderLeft: '3px solid var(--accent-gold)',
+              borderRadius: 3,
+              padding: '20px 24px',
+              marginBottom: 20,
+            }}
+          >
+            <div
+              className="mono"
+              style={{
+                fontSize: 11, color: 'var(--text-muted)',
+                letterSpacing: '0.12em', textTransform: 'uppercase',
+                marginBottom: 16, paddingBottom: 10,
+                borderBottom: '1px solid var(--border-subtle)',
+              }}
+            >
+              Existing Invoice
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px 24px', marginBottom: 20 }}>
+              {[
+                { label: 'NFT Asset', value: String(ctx.nftAssetId), mono: true },
+                { label: 'Amount', value: `₹${ctx.amount.toLocaleString('en-IN')}`, mono: true },
+                { label: 'Trust Score', value: `${ctx.trustScore} / 100`, mono: true },
+                { label: 'Status', value: ctx.invoiceStatus || 'ACTIVE', color: existingStatusColor },
+              ].map(({ label, value, mono, color }) => (
+                <div key={label}>
+                  <div style={{ fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.10em', color: 'var(--text-muted)', marginBottom: 3 }}>
+                    {label}
+                  </div>
+                  <div className={mono ? 'mono' : undefined} style={{ fontSize: 13, color: color ?? 'var(--text-primary)', letterSpacing: '0.02em' }}>
+                    {value}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+              {canReBorrow && (
+                <button className="btn-primary" onClick={() => navigate('/app/borrow')}>
+                  Borrow Now →
+                </button>
+              )}
+              <button className="btn-secondary" onClick={handleStartFresh}>
+                Mint New Invoice →
+              </button>
+            </div>
+          </div>
+        </motion.div>
+      ) : (
+        <>
 
       <PdfSection
         onHashed={handlePdfHashed}
@@ -1141,7 +1234,10 @@ export default function UploadPage() {
         )}
       </AnimatePresence>
 
-      {(client || amount || dueDate) && (
+        </>
+      )}
+
+      {(client || amount || dueDate) && !hasExistingInvoice || showFreshForm ? (
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -1173,7 +1269,7 @@ export default function UploadPage() {
             </table>
           </div>
         </motion.div>
-      )}
+      ) : null}
     </div>
   )
 }

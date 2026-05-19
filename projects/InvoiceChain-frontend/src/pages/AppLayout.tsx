@@ -325,10 +325,14 @@ export default function AppLayout() {
   // ── Path A: localStorage had appId — just reconstruct the client ──
   useEffect(() => {
     if (!ctx.appId || ctx.appClient || !activeAddress) return
-    const algorand = buildAlgorand()
-    ctx.setAppClient(
-      new InvoiceClient({ appId: ctx.appId, defaultSender: activeAddress, algorand })
-    )
+    try {
+      const algorand = buildAlgorand()
+      ctx.setAppClient(
+        new InvoiceClient({ appId: ctx.appId, defaultSender: activeAddress, algorand })
+      )
+    } catch {
+      // appId may be stale — chain restore will correct it when wallet reconnects
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ctx.appId, ctx.appClient, activeAddress])
 
