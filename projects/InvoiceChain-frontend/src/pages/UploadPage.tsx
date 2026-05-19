@@ -815,7 +815,7 @@ export default function UploadPage() {
           dueDate: ctx.dueDate,
           trustScore: ctx.trustScore,
           riskLevel: ctx.riskLevel || 'HIGH',
-          invoiceStatus: ctx.invoiceStatus || 'ACTIVE',
+          invoiceStatus: ctx.invoiceStatus === 'ACTIVE' ? 'REPAID' : (ctx.invoiceStatus || 'REPAID'),
           mintTxnId: ctx.mintTxnId,
           documentHash: ctx.documentHash,
         }

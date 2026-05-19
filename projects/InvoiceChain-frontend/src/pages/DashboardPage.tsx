@@ -502,10 +502,10 @@ export default function DashboardPage() {
                 {/* Past invoices (history) */}
                 {ctx.pastInvoices.slice().reverse().map(inv => {
                   const pastRiskColor = getRiskColor(inv.riskLevel)
+                  const displayStatus = inv.invoiceStatus === 'ACTIVE' ? 'REPAID' : (inv.invoiceStatus || 'REPAID')
                   const pastStatusColor =
-                    inv.invoiceStatus === 'REPAID'      ? 'var(--status-low)' :
-                    inv.invoiceStatus === 'LIQUIDATED'  ? 'var(--status-liquidated)' :
-                    'var(--text-muted)'
+                    displayStatus === 'LIQUIDATED' ? 'var(--status-liquidated)' :
+                    'var(--status-low)'
                   return (
                     <tr key={String(inv.nftAssetId)} style={{ opacity: 0.55 }}>
                       <td>
@@ -544,7 +544,7 @@ export default function DashboardPage() {
                             borderRadius: 2,
                           }}
                         >
-                          {inv.invoiceStatus}
+                          {displayStatus}
                         </span>
                       </td>
                       <td>
